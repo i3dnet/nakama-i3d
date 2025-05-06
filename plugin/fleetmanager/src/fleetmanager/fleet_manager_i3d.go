@@ -108,7 +108,7 @@ func (fm *I3dFleetManager) List(ctx context.Context, query string, limit int, pr
 
 	if query == "" {
 		fb := NewFilterBuilder()
-		query = fb.Add(status, "5").Add(applicationId, fm.cfg.ApplicationId).Query()
+		query = fb.Add(status, AllocationStatus).Add(applicationId, fm.cfg.ApplicationId).Query()
 
 		result, err := fm.client.ListApplicationInstances(ctx, query, limit, previousCursor)
 		if err != nil {

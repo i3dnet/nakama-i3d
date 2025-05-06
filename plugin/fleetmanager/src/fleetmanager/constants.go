@@ -18,6 +18,7 @@ const (
 )
 
 const MaxPlayers = "i3d_max_players"
+const AllocationStatus = "5"
 
 func getMaxPlayers(instance *runtime.InstanceInfo) (int, error) {
 
