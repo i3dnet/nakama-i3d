@@ -1,7 +1,6 @@
 # Nakama And i3D Integration
 
 ## Table of Contents
-## Table of Contents
 
 1. [Introduction](#introduction)
 2. [Prerequisites](#prerequisites)
@@ -23,8 +22,8 @@
    * [Health Check RPC](#health-check-rpc)
 8. [Limitations](#limitations)
 9. [Advice](#advice)
-9. [Contributing](#contributing)
-10. [License](#license)
+10. [Contributing](#contributing)
+11. [License](#license)
 
 
 ## 1. Introduction
@@ -56,7 +55,7 @@ server will be send by the i3D Api to the game server. This ensures you that the
 right map. After the game has finished you need to update the status inside of the game server to 4 (online) so that the
 game server can be allocated again.
 
-## Installation
+## 3. Installation
 
 ```bash
 go get github.com/i3d/nakama-fleetmanager
@@ -219,7 +218,19 @@ metadata := fb.AddFiltersToMetaData(map[string]any{"players": "5"})
 fm.Create(ctx, 5, userIDs, nil, metadata, callback)
 ```
 
-Available filter keys: `deploymentEnvironmentId`, `fleetId`, `regionName`, etc.
+available filters:
+These are the available filters:
+ - deploymentEnvironmentId
+ - deploymentEnvironmentName
+ - fleetId
+ - fleetName
+ - hostId
+ - applicationBuildId
+ - applicationBuildName
+ - dcLocationId
+ - dcLocationName
+ - regionId
+ - regionName
 
 ### 7.4 Listing Sessions
 
@@ -264,253 +275,17 @@ There are some limitations to the Nakama Fleet Manager plugin. These are:
   than checking the **max amount of players** against the players that will join, if the amount is bigger than the max
   amount only the sessions that can join will be given back from the join.
 
-## Usage
-
-Just like the GameLift integration, the i3D `fleetmanager` instance has to be created within your Nakama plugin's
-`InitModule` function.
-
-```go
-
-// can be set globally
-var localconfig *fleetmanager_config.FleetManagerConfig
-
-// catching the error:
-var runTimeError *runtime.Error
-
-// getting config from the local.yml inside the runtime environment variables
-localconfig, runTimeError = fleetmanager_config.NewConfigFromRuntime(ctx)
-if runTimeError != nil {
-
-  // fallback to configuration from .env file
-  // or set as environment variables on the operating system
-  // or as settings.json set in the app directory
-  localconfig, runTimeError = fleetmanager_config.NewConfig()
-  if runTimeError != nil {
-      logger.WithField("error", runTimeError).Error("failed to create config")
-      return runTimeError
-  }
-}
-  
-// create fleet manager instance
-fm, err := fleetmanager.NewI3dFleetManager(ctx, logger, initializer, nk, localconfig)
-if err != nil {	
-  return err
-}
-
-// Register the fleet manager with Nakama
-if err = initializer.RegisterFleetManager(fm); err != nil {
-	logger.WithField("error", err).Error("failed to register fleet manager")
-	return err
-}
-
-```
-
-### Matchmaking events
-When a matchmaker matches event comes in, we invoke the `FleetManager#Create` method to get a i3d game game server. Because we don't manage the users you don't have to assign the users to the session. Best is to place the handling in a separate method
-```go
-// in the initModule method you can add:
-if err = initializer.RegisterMatchmakerMatched(MatchmakerMatched); err != nil {
-	logger.Error("Error registering MatchmakerMatched: %v", err)
-	return err
-}
-
-// you can than add the MatchmakerMatched method
-func MatchmakerMatched(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runtime.NakamaModule, entries []runtime.MatchmakerEntry) (string, error) {
-	// Get the user ids from the matchmaker entries
-    userIds := make([]string, 0, len(entries))
-    for _, entry := range entries {
-        userIds = append(userIds, entry.GetPresence().GetUserId())
-    }
-	
-	// Retrieve the fleet manager
-	fm := nk.GetFleetManager()
-	
-	// Create a callback function to handle the result of the server creation
-	var callback runtime.FmCreateCallbackFn = func(status runtime.FmCreateStatus, instanceInfo *runtime.InstanceInfo, sessionInfo []*runtime.SessionInfo, metadata map[string]any, err error) {
-    		if err != nil {
-    			logger.Error("Error creating game session: %v", err)
-    			return
-    		}
-			
-    		for _, userId := range userIds {
-    			// Use the Nakama Instance to Notify each user that the game session has been created and supply IpAddress
-    			sessionId, found := getSessionForUserId(sessionInfo, userId)
-    			if found {
-    
-    				sessionInfo := map[string]any{
-    					"IpAddress": instanceInfo.ConnectionInfo.IpAddress,
-    					"Port":      instanceInfo.ConnectionInfo.Port,
-    					"SessionId": sessionId,
-    				}
-					
-    				err = nk.NotificationsSend(ctx, []*runtime.NotificationSend{
-    					{
-    						Code:    9000, // this is a custom code for your notification, you cannot use 0
-    						UserID:  userId,
-    						Subject: "Game Session Created",
-    						Content: sessionInfo,
-    					},
-    				})
-    
-    				if err != nil {
-    					logger.WithField("error", err).Error("error sending notification")
-    				}
-    			}
-    		}
-    
-    		logger.Debug("Callback successfully called with status: %v", status)
-    	}
-		
-		// create the game server in Nakama and get it from i3d.net
-		err := fm.Create(ctx, maxPlayers, userIds, nil, metadata, callback)
-        if err != nil {
-            logger.Error("Error creating game session: %v", err)
-            return "", err
-        }
-		
-		return "", nil
-}
-
-```
-
-### MatchMakerMatched
-
-The `MatchmakerMatched` event handler is registered with the Nakama Initializer by calling the
-`RegisterMatchmakerMatched` function, passing in the `MatchmakerMatched` function.
-
-Triggered once Nakama successfully matches two or more players to create a new match. In this function we retrieve the
-`FleetManager` registered with Nakama and call the `Create` method to create a new server instance to host the newly
-created match. This `Create` method also accepts a callback function so individual players can be notified once the game
-server is started and available.
-
-The `MatchMakerMatched` event handler function takes various parameters including the Nakama module itself and a list of
-entries containing the information about the players and the matchmaking ticket that was used to create this Match.
-
-```
-func MatchmakerMatched(
-    ctx context.Context, 
-    logger runtime.Logger, 
-    db *sql.DB, 
-    nk runtime.NakamaModule, 
-    entries []runtime.MatchmakerEntry
-) (string, error)
-```
-
-A callback is then registered on the `Create` function to do any processing once a server has been successfully
-allocated and started. For example, using the Nakama module to send a notification to each client that they can now
-connect to the server.
-
-```
-var callback runtime.FmCreateCallbackFn = func(
-    status runtime.FmCreateStatus,
-    instanceInfo *runtime.InstanceInfo,
-    sessionInfo []*runtime.SessionInfo,
-    metadata map[string]any, err error
-)
-```
-
-The final part of this function creates metadata required by the game server, which is very likely to be specific to the
-actual game. This can be hard-coded, loaded from config or read from the matchmaker data passed in by Nakama. Once
-everything is set, the `Create` method can be called on the `FleetManager` which will then call i3D to find and allocate
-a free server instance for the match to run on for the appropriate number of players.
-
-```
-metadata := make(map[string]any)
-metadata["players"] = "5"
-metadata["applicationId"] = properties["applicationId"]
-
-err := fm.Create(ctx, maxplayers, userIds, nil, metadata, callback)
-```
-
-### Using Filters
-The i3D API allows you to use filters to get the right game server for your players. You can use the filters by using the helper method `filterBuilder` inside the `fleetmanager` package.
-These are the available filters:
- - deploymentEnvironmentId
- - deploymentEnvironmentName
- - fleetId
- - fleetName
- - hostId
- - applicationBuildId
- - applicationBuildName
- - dcLocationId
- - dcLocationName
- - regionId
- - regionName
-
-### Create (allocating a game server)
-Usage of the filter builder is as following:
-```go
-
-filterBuilder := fleetmanager.NewFilterBuilder()
-
-// Add filters to the filter builder
-filterBuilder
-	.Add(FleetId, "<your-fleet-id>")
-	.Add(RegionId, "<your-region-id>")
-
-// for the allocation call (this has not query implementation saidly)
-
-
-// add your metadata here
-var metaData map[string]any
-metaData = make(map[string]any)
-metaData["players"] = "5"
-metaData["gameMap"] = "<your map name>"
-
-metaData = filterBuilder.AddFiltersToMetaData(metaData)
-
-// use the `metaData` enriched with the filters in the `Create` call
-err := fm.Create(ctx, maxplayers, userIds, nil, metaData, callback)
-
-```
-## List
-To query for existing Game Sessions, List can be used with the Query Syntax:
-```go
-query := "+value.playerCount:2" // Query to list Game Sessions currently containing 2 Player Sessions. An empty query will list all Game Sessions.
-limit := 10 // Number of results per page (does not apply if query is != "").
-cursor := "" // Pagination cursor.
-instances, nextCursor, err := fm.List(ctx, query, limit, cursor)
-```
-
-When the list call is done without the query parameters, all active game sessions will be gotten from the one API. You need to implement your self the pagination with the token, example:
-```go
-for {
-	instances, nextCursor, err := fm.List(ctx, query, limit, cursor)
-	if err != nil {
-		logger.Error("Error listing game sessions: %v", err)
-		break
-	}
-	// do something with the instances
-	cursor = nextCursor
-	if cursor == "" {
-		break
-	}
-}
-
-```
-
-Internally the cache will be updated with the game servers that are being used by the system. The list call is only needed when you want to add players to an already existing active (allocated) game server.
-
-
-## Health Check
-Within the `fleetmanager` package we added a method `RpcHealthCheck` that can be used for a default Rpc healthcheck. Please your own implementation when you want to use in production.
-
-```go
-
-//Register the healthcheck RPC
-err := initializer.RegisterRpc("healthcheck", fleetmanager.RpcHealthCheck)
-if err != nil {
-	logger.Error("Error registering healthcheck RPC: %v", err)
-	return err
-}
-
-```
-
-## 8. Advice
+## 9. Advice
 
 To make sure that the game server is always in the right state we recommend that after your players have left the game,
 to exit the game. Our system will automatically restart the game server with new ports. This ensures that your game
 server is always in the right state when players join your game. May your game suffer from unforeseen memory leaks or
 other issues, you ensure in this way that your game server is always in the right state.
 
+## 10. Contributing
 
+Contributions are welcome! Please open issues or pull requests on GitHub.
+
+## 11. License
+
+This project is licensed under the [MIT License](./LICENSE).
