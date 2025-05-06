@@ -6,12 +6,16 @@
 .dll
 .so
 .dylib
-
+.env
 # Output of the go coverage tool, specifically when used with LiteIDE
 .out
+
+# Nakama
+local.yml
 
 # Dependency directories
 vendor/
 
 # Go workspace file
 go.work
+/.idea
