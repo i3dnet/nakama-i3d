@@ -1,10 +1,8 @@
 package configs
 
 import (
-	"encoding/json"
 	"fmt"
 	"github.com/ilyakaznacheev/cleanenv"
-	"io"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -12,7 +10,7 @@ import (
 
 type Config struct {
 	App
-	HTTP `json:"http" env:"HTTP"`
+	HTTP
 }
 
 type App struct {
@@ -21,7 +19,7 @@ type App struct {
 }
 
 type HTTP struct {
-	Port string `env-required:"true" json:"port" env:"HTTP_PORT"`
+	Port string `env-required:"true" env:"HTTP_PORT"`
 }
 
 func NewConfig() *Config {
@@ -65,33 +63,6 @@ func readEnv(envFilePath string, cfg *Config) error {
 			return err
 		}
 	}
-	return nil
-}
-
-func readJson(jsonFilePath string, cfg *Config) error {
-
-	// check if file exists
-	if _, err := os.Stat(jsonFilePath); err != nil {
-		return fmt.Errorf("config error: %w", err)
-	}
-
-	file, err := os.Open(jsonFilePath)
-	if err != nil {
-		return fmt.Errorf("config error: %w", err)
-	}
-
-	defer file.Close()
-
-	bytes, err := io.ReadAll(file) // In Go 1.16+, you can use os.ReadFile(filename) directly
-	if err != nil {
-		return err
-	}
-
-	err = json.Unmarshal(bytes, &cfg)
-	if err != nil {
-		return fmt.Errorf("config error: %w", err)
-	}
-
 	return nil
 }
 

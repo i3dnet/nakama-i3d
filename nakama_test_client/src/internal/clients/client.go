@@ -134,61 +134,10 @@ func (cl *Client) MatchId() string {
 
 func (cl *Client) Ready(ctx context.Context) bool {
 	return true
-	//ch := make(chan bool, 1)
-	//go func() {
-	//	defer close(ch)
-	//	for {
-	//		if state := cl.state; state != nil && state.State.RematchCountdown == 0 {
-	//			ch <- true
-	//			return
-	//		}
-	//		select {
-	//		case <-ctx.Done():
-	//			return
-	//		case <-time.After(50 * time.Millisecond):
-	//		}
-	//	}
-	//}()
-	//select {
-	//case <-ctx.Done():
-	//	return false
-	//case res := <-ch:
-	//	return res
-	//}
 }
 
 func (cl *Client) Next(ctx context.Context) bool {
 	return true
-	//ch := make(chan bool, 1)
-	//go func() {
-	//	defer close(ch)
-	//	for {
-	//		cl.rw.RLock()
-	//		waiting, state := cl.waiting, cl.state
-	//		cl.rw.RUnlock()
-	//		switch {
-	//		case waiting || state == nil:
-	//		case state.State.Winner != 0,
-	//			state.State.Draw,
-	//			state.State.RematchCountdown != 0:
-	//			return
-	//		case state.YourTurn:
-	//			ch <- true
-	//			return
-	//		}
-	//		select {
-	//		case <-ctx.Done():
-	//			return
-	//		case <-time.After(50 * time.Millisecond):
-	//		}
-	//	}
-	//}()
-	//select {
-	//case <-ctx.Done():
-	//	return false
-	//case res := <-ch:
-	//	return res
-	//}
 }
 
 func (cl *Client) AuthHandler(ctx context.Context, nakamaClient *nakama.Client) error {
@@ -232,30 +181,6 @@ func (cl *Client) ChannelPresenceEventHandler(ctx context.Context, msg *nakama.C
 
 func (cl *Client) MatchDataHandler(ctx context.Context, msg *nakama.MatchDataMsg) {
 	cl.logf("MatchData: %+v", msg)
-	//state := new(MatchState)
-	//if err := state.Unmarshal(msg.Data); err != nil {
-	//	cl.logf("unable to unmarshal MatchData: %v", err)
-	//	state = nil
-	//}
-	//cl.rw.Lock()
-	//defer cl.rw.Unlock()
-	//prev := cl.state
-	//cl.waiting, cl.state = state == nil, state
-	//if cl.matchDataHandler != nil {
-	//	cl.matchDataHandler(ctx, msg)
-	//}
-	//if cl.stateHandler == nil {
-	//	return
-	//}
-	//switch {
-	//case prev == nil && state != nil,
-	//	prev != nil && state == nil,
-	//	prev.YourTurn != state.YourTurn,
-	//	prev.State.RematchCountdown != state.State.RematchCountdown,
-	//	state.State.Winner != 0,
-	//	state.State.Draw:
-	//	cl.stateHandler(ctx)
-	//}
 }
 
 func (cl *Client) MatchPresenceEventHandler(ctx context.Context, msg *nakama.MatchPresenceEventMsg) {
@@ -393,21 +318,6 @@ func (cl *Client) LeaveAsync(ctx context.Context, f func(error)) {
 
 func (cl *Client) Move(ctx context.Context, row, col int) error {
 	cl.logf("Move: moving %d, %d", row, col)
-	//cl.rw.RLock()
-	//matchId, state := cl.matchId, cl.state
-	//cl.rw.RUnlock()
-	//if matchId == "" || state == nil {
-	//	return fmt.Errorf("no active match")
-	//}
-	//data, err := NewMove(row, col).Marshal()
-	//if err != nil {
-	//	return fmt.Errorf("unable to marshal move: %w", err)
-	//}
-	//cl.rw.Lock()
-	//defer cl.rw.Unlock()
-	//cl.waiting = true
-	//return cl.conn.MatchDataSend(ctx, matchId, OpCodeMove, data, true, nil)
-
 	return nil
 }
 

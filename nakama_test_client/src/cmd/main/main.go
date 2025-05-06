@@ -44,10 +44,8 @@ func (g *GameTest) DisconnectHandler(ctx context.Context, err error) {
 	go func() {
 		<-time.After(1 * time.Second)
 		for i := 0; !g.cl.Connected(); i++ {
-			//g.connectedLabel = strings.Repeat(".", 1+i%5)
 			<-time.After(1 * time.Second)
 			log.Print("disconnecting...")
-			//g.window.Invalidate()
 		}
 	}()
 }
@@ -58,14 +56,6 @@ func (g *GameTest) StateHandler(ctx context.Context) {
 
 func (g *GameTest) ConnectHandler(ctx context.Context) {
 	log.Println("ConnectHandler...")
-
-	//time.Sleep(1 * time.Second)
-	//log.Println("creating match...")
-	//g.cl(g.ctx, func(err error) {
-
-	//time.Sleep(1 * time.Second)
-	// log.Println("Creating match...")
-	// g.cl.CreateMatch(g.ctx)
 
 	time.Sleep(1 * time.Second)
 	log.Println("Add match...")
@@ -93,7 +83,6 @@ func (g *GameTest) Run() error {
 		return err
 	}
 	for {
-		//log.Println("Running...")
 		time.Sleep(1 * time.Second)
 	}
 }

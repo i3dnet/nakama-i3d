@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"gitlab.com/i3Dnet/dev/game/projects/plugins/nakama/fleetmanager/fleetmanager_config"
+	"gitlab.com/i3Dnet/dev/game/projects/plugins/nakama/fleetmanager/config"
 	"io"
 	"net/http"
 	"sync"
@@ -17,14 +17,14 @@ type Authentication interface {
 }
 
 type AuthenticationService struct {
-	cfg         *fleetmanager_config.Config
+	cfg         *config.Config
 	accessToken string
 	expiresAt   time.Time
 	mu          sync.Mutex
 	httpClient  *http.Client
 }
 
-func NewAuthentication(cfg *fleetmanager_config.Config) *AuthenticationService {
+func NewAuthentication(cfg *config.Config) *AuthenticationService {
 	return &AuthenticationService{
 		cfg:         cfg,
 		accessToken: "",

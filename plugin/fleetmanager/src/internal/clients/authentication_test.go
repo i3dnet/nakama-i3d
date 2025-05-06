@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"github.com/heroiclabs/nakama-common/runtime"
 	"github.com/stretchr/testify/suite"
-	"gitlab.com/i3Dnet/dev/game/projects/plugins/nakama/fleetmanager/fleetmanager_config"
+	"gitlab.com/i3Dnet/dev/game/projects/plugins/nakama/fleetmanager/config"
 	"gitlab.com/i3Dnet/dev/game/projects/plugins/nakama/fleetmanager/internal/tests"
 	"io"
 	"net/http"
@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-func newTestAuthentication(cfg *fleetmanager_config.Config, httpClient *http.Client) *AuthenticationService {
+func newTestAuthentication(cfg *config.Config, httpClient *http.Client) *AuthenticationService {
 	return &AuthenticationService{
 		cfg:         cfg,
 		accessToken: "",
@@ -25,7 +25,7 @@ func newTestAuthentication(cfg *fleetmanager_config.Config, httpClient *http.Cli
 type AuthenticationServiceTestSuite struct {
 	suite.Suite
 	logger runtime.Logger
-	cfg    *fleetmanager_config.Config
+	cfg    *config.Config
 }
 
 const (
@@ -36,12 +36,12 @@ const (
 )
 
 func (suite *AuthenticationServiceTestSuite) SetupTest() {
-	suite.cfg = &fleetmanager_config.Config{
-		App: fleetmanager_config.App{
+	suite.cfg = &config.Config{
+		App: config.App{
 			Name:    "test",
 			Version: "1.0.1",
 		},
-		OneApi: fleetmanager_config.OneApi{
+		OneApi: config.OneApi{
 			BaseUrl:           "http://localhost:8080",
 			ApplicationId:     "1235",
 			UseBearerAuth:     true,

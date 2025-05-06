@@ -10,15 +10,15 @@ import (
 	"github.com/bxcodec/faker/v4"
 	"github.com/heroiclabs/nakama-common/runtime"
 	"github.com/stretchr/testify/suite"
-	"gitlab.com/i3Dnet/dev/game/projects/plugins/nakama/fleetmanager/fleetmanager_config"
-	openapi "gitlab.com/i3Dnet/dev/game/projects/plugins/nakama/fleetmanager/internal/open-api"
+	"gitlab.com/i3Dnet/dev/game/projects/plugins/nakama/fleetmanager/config"
+	openapi "gitlab.com/i3Dnet/dev/game/projects/plugins/nakama/fleetmanager/internal/openapi"
 	"gitlab.com/i3Dnet/dev/game/projects/plugins/nakama/fleetmanager/internal/tests"
 	"go.uber.org/mock/gomock"
 	"io"
 	"net/http"
 )
 
-func newOneApiTestClient(cfg *fleetmanager_config.Config, authentication Authentication, httpClient *http.Client, logger runtime.Logger) *OneApiClient {
+func newOneApiTestClient(cfg *config.Config, authentication Authentication, httpClient *http.Client, logger runtime.Logger) *OneApiClient {
 	return &OneApiClient{
 		cfg:            cfg,
 		logger:         logger,
@@ -46,17 +46,17 @@ func (m *mockRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) 
 type ApplicationInstanceTestSuite struct {
 	suite.Suite
 	logger runtime.Logger
-	cfg    *fleetmanager_config.Config
+	cfg    *config.Config
 }
 
 func (suite *ApplicationInstanceTestSuite) SetupTest() {
 
-	suite.cfg = &fleetmanager_config.Config{
-		App: fleetmanager_config.App{
+	suite.cfg = &config.Config{
+		App: config.App{
 			Name:    "test",
 			Version: "1.0.1",
 		},
-		OneApi: fleetmanager_config.OneApi{
+		OneApi: config.OneApi{
 			BaseUrl:       "http://localhost:8080",
 			ApplicationId: "1235",
 			Token:         "1234567890",

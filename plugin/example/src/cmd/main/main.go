@@ -5,13 +5,13 @@ import (
 	"context"
 	"database/sql"
 	"github.com/heroiclabs/nakama-common/runtime"
+	"gitlab.com/i3Dnet/dev/game/projects/plugins/nakama/fleetmanager/config"
 	"gitlab.com/i3Dnet/dev/game/projects/plugins/nakama/fleetmanager/fleetmanager"
-	"gitlab.com/i3Dnet/dev/game/projects/plugins/nakama/fleetmanager/fleetmanager_config"
 
 	"time"
 )
 
-var localconfig *fleetmanager_config.Config
+var localconfig *config.Config
 
 // InitModule is the entry point for the module. and creates the fleet manager with the given configuration.
 func InitModule(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runtime.NakamaModule, initializer runtime.Initializer) error {
@@ -21,13 +21,13 @@ func InitModule(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runti
 	var runTimeError *runtime.Error
 
 	// getting config from the local.yml inside the runtime environment variables
-	localconfig, runTimeError = fleetmanager_config.NewConfigFromRuntime(ctx)
+	localconfig, runTimeError = config.NewConfigFromRuntime(ctx)
 	if runTimeError != nil {
 
 		// fallback to configuration from .env file
 		// or set as environment variables on the operating system
 		// or as settings.json set in the app directory
-		localconfig, runTimeError = fleetmanager_config.NewConfig()
+		localconfig, runTimeError = config.NewConfig()
 		if runTimeError != nil {
 			logger.WithField("error", runTimeError).Error("failed to create config")
 			return runTimeError

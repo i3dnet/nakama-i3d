@@ -3,7 +3,7 @@ package clients
 import (
 	"errors"
 	"github.com/stretchr/testify/suite"
-	"gitlab.com/i3Dnet/dev/game/projects/plugins/nakama/fleetmanager/fleetmanager_config"
+	"gitlab.com/i3Dnet/dev/game/projects/plugins/nakama/fleetmanager/config"
 	"gitlab.com/i3Dnet/dev/game/projects/plugins/nakama/fleetmanager/internal/tests"
 	"testing"
 	"time"
@@ -12,13 +12,13 @@ import (
 type RetryExecutorTestSuite struct {
 	suite.Suite
 	logger *tests.MockLogger
-	cfg    *fleetmanager_config.Config
+	cfg    *config.Config
 }
 
 func (s *RetryExecutorTestSuite) SetupTest() {
 	s.logger = tests.NewMockLogger()
-	s.cfg = &fleetmanager_config.Config{
-		Retry: fleetmanager_config.Retry{
+	s.cfg = &config.Config{
+		Retry: config.Retry{
 			Delay:    5 * time.Millisecond,
 			MaxDelay: 20 * time.Millisecond,
 		},

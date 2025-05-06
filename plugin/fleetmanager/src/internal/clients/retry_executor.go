@@ -2,7 +2,7 @@ package clients
 
 import (
 	"github.com/heroiclabs/nakama-common/runtime"
-	"gitlab.com/i3Dnet/dev/game/projects/plugins/nakama/fleetmanager/fleetmanager_config"
+	"gitlab.com/i3Dnet/dev/game/projects/plugins/nakama/fleetmanager/config"
 	"time"
 )
 
@@ -14,7 +14,7 @@ type RetryExecutor struct {
 	factor       float64
 }
 
-func NewRetryExecutor(log runtime.Logger, cfg *fleetmanager_config.Config, shouldRetry func(error) bool) *RetryExecutor {
+func NewRetryExecutor(log runtime.Logger, cfg *config.Config, shouldRetry func(error) bool) *RetryExecutor {
 	return &RetryExecutor{
 		log:          log,
 		shouldRetry:  shouldRetry,

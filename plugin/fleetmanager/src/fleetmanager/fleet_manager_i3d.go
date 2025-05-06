@@ -4,7 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"github.com/heroiclabs/nakama-common/runtime"
-	config "gitlab.com/i3Dnet/dev/game/projects/plugins/nakama/fleetmanager/fleetmanager_config"
+	config "gitlab.com/i3Dnet/dev/game/projects/plugins/nakama/fleetmanager/config"
 	"gitlab.com/i3Dnet/dev/game/projects/plugins/nakama/fleetmanager/internal/clients"
 	"gitlab.com/i3Dnet/dev/game/projects/plugins/nakama/fleetmanager/internal/storage"
 )

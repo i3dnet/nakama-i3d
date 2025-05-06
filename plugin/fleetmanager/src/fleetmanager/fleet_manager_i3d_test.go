@@ -5,7 +5,7 @@ import (
 	"errors"
 	"github.com/heroiclabs/nakama-common/runtime"
 	"github.com/stretchr/testify/suite"
-	"gitlab.com/i3Dnet/dev/game/projects/plugins/nakama/fleetmanager/fleetmanager_config"
+	"gitlab.com/i3Dnet/dev/game/projects/plugins/nakama/fleetmanager/config"
 	"gitlab.com/i3Dnet/dev/game/projects/plugins/nakama/fleetmanager/internal/clients"
 	"gitlab.com/i3Dnet/dev/game/projects/plugins/nakama/fleetmanager/internal/storage"
 	"gitlab.com/i3Dnet/dev/game/projects/plugins/nakama/fleetmanager/internal/tests"
@@ -18,7 +18,7 @@ import (
 
 type FleetManagerSuite struct {
 	suite.Suite
-	cfg             *fleetmanager_config.Config
+	cfg             *config.Config
 	logger          *tests.MockLogger
 	fleetManager    *I3dFleetManager
 	callBackHandler *tests.CallbackHandlerMock
@@ -26,12 +26,12 @@ type FleetManagerSuite struct {
 }
 
 func (suite *FleetManagerSuite) SetupTest() {
-	suite.cfg = &fleetmanager_config.Config{
-		App: fleetmanager_config.App{
+	suite.cfg = &config.Config{
+		App: config.App{
 			Name:    "test",
 			Version: "1.0.1",
 		},
-		OneApi: fleetmanager_config.OneApi{
+		OneApi: config.OneApi{
 			BaseUrl:       "http://localhost:8080",
 			ApplicationId: "1235",
 			Token:         "1234567890",

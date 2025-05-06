@@ -2,15 +2,15 @@ package clients
 
 import (
 	"github.com/heroiclabs/nakama-common/runtime"
-	"gitlab.com/i3Dnet/dev/game/projects/plugins/nakama/fleetmanager/fleetmanager_config"
-	openapi "gitlab.com/i3Dnet/dev/game/projects/plugins/nakama/fleetmanager/internal/open-api"
+	"gitlab.com/i3Dnet/dev/game/projects/plugins/nakama/fleetmanager/config"
+	openapi "gitlab.com/i3Dnet/dev/game/projects/plugins/nakama/fleetmanager/internal/openapi"
 	"net/http"
 )
 
 type OneApiClient struct {
 	client         *openapi.APIClient
 	httpClient     *http.Client
-	cfg            *fleetmanager_config.Config
+	cfg            *config.Config
 	authentication Authentication
 	RetryExecutor  *RetryExecutor
 	logger         runtime.Logger
@@ -22,7 +22,7 @@ type tokenResponse struct {
 	TokenType   string `json:"token_type"`
 }
 
-func NewOneApiClient(cfg *fleetmanager_config.Config, authentication Authentication, logger runtime.Logger) *OneApiClient {
+func NewOneApiClient(cfg *config.Config, authentication Authentication, logger runtime.Logger) *OneApiClient {
 	return &OneApiClient{
 		cfg:            cfg,
 		logger:         logger,

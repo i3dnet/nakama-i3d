@@ -1,4 +1,4 @@
-package fleetmanager_config
+package config
 
 import (
 	"context"

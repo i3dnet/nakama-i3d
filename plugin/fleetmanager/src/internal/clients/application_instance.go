@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/heroiclabs/nakama-common/runtime"
-	openapi "gitlab.com/i3Dnet/dev/game/projects/plugins/nakama/fleetmanager/internal/open-api"
+	openapi "gitlab.com/i3Dnet/dev/game/projects/plugins/nakama/fleetmanager/internal/openapi"
 	"strconv"
 	"time"
 )
