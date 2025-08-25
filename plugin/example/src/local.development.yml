@@ -1,0 +1,7 @@
+logger:
+  level: "DEBUG"
+runtime:
+  env:
+    - "I3D_APPLICATION_ID=6268349608002583795"
+    - "I3D_BASE_URL=http://mock_server:8080"
+    - "I3D_ACCESS_TOKEN=test-token"

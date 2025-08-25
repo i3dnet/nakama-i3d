@@ -1,0 +1,6 @@
+logger:
+  level: "DEBUG"
+runtime:
+  env:
+    - "I3D_APPLICATION_ID={APPLICATION_ID_HERE}"
+    - "I3D_ACCESS_TOKEN={ACCESS_TOKEN_HERE}"

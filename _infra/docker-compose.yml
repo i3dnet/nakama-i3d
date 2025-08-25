@@ -1,0 +1,74 @@
+services:
+  postgres:
+    command: postgres -c shared_preload_libraries=pg_stat_statements -c pg_stat_statements.track=all
+    container_name: template_nk_postgres
+    environment:
+      - POSTGRES_DB=nakama
+      - POSTGRES_PASSWORD=localdb
+    expose:
+      - "8080"
+      - "5432"
+    image: postgres:12.2-alpine
+    ports:
+      - "5432:5432"
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres", "-d", "nakama"]
+      interval: 3s
+      timeout: 30s
+      retries: 5
+    volumes:
+      - data:/var/lib/postgresql/data
+
+  mock_server:
+    container_name: mock_server
+    build:
+      context: ../mock_api_server
+      dockerfile: Dockerfile
+    ports:
+      - "8181:8080"
+
+
+  nakama-test-client:
+    container_name: nakama-test-client
+    build:
+      context: ../nakama_test_client/src
+      dockerfile: Dockerfile
+    depends_on:
+      - nakama
+
+  nakama:
+    build:
+      context: ../plugin
+      dockerfile: Dockerfile
+    container_name: template_nk_backend
+    depends_on:
+      - postgres
+      # - tf
+    entrypoint:
+      - "/bin/sh"
+      - "-ecx"
+      - >
+        /nakama/nakama migrate up --database.address postgres:localdb@postgres:5432/nakama?sslmode=disable &&
+        exec /nakama/nakama --config /nakama/data/local.yml --database.address postgres:localdb@postgres:5432/nakama?sslmode=disable
+    expose:
+      - "7349"
+      - "7350"
+    healthcheck:
+      test: [ "CMD", "/nakama/nakama", "healthcheck" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    links:
+      - "postgres:db"
+#    environment:
+#      - I3D_APPLICATION_ID=6268349608002583795
+#      - I3D_BASE_URL=http://mock_server:8080
+#      - I3D_ACCESS_TOKEN=test-token
+    ports:
+      - "7349:7349"
+      - "7350:7350"
+      - "7351:7351"
+    restart: unless-stopped
+volumes:
+  data:

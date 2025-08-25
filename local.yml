@@ -1,7 +1,0 @@
-logger:
-  level: "DEBUG"
-runtime:
-  env:
-    - "FLEET_MANAGER_API_URL=https://api.i3d.net"
-    - "FLEET_MANAGER_API_TOKEN=4DGvV70sM9st4O5D3VA8"
-    - "APPLICATION_ID=6268349608002583795"
