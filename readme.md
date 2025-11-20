@@ -20,6 +20,7 @@
    * [Using Filters](#using-filters)
    * [Listing Sessions](#listing-sessions)
    * [Health Check RPC](#health-check-rpc)
+   * [Fleetmanager RPCs](#fleetmanager-rpcs)
 8. [Limitations](#limitations)
 9. [Advice](#advice)
 10. [Contributing](#contributing)
@@ -257,6 +258,44 @@ Register a health check endpoint:
 ```go
 if err := initializer.RegisterRpc("healthcheck", fleetmanager.RpcHealthCheck); err != nil {
     return err
+}
+```
+
+### 7.6 Fleetmanager RPCs
+
+For Nakama to be up-to-date on the number of Player Sessions currently connected to a Game Session and for it to be aware of when a Game Session is terminated, the Game Session SDK should invoke two RPCs that are automatically exposed as part of the `fleetmanager` registration. These RPCs can be invoked as [Server-to-Server calls](https://heroiclabs.com/docs/nakama/server-framework/runtime-examples/#server-to-server).
+
+#### Update RPC
+* RpcId: `update_instance_info`
+
+This RPC should be invoked any time a player connects or disconnects from the Game Session to update the playerCount by passing the current number of connected players.
+
+It can also be used to update a Game Session's `GameSessionName`, `GameSessionData` or `GameProperties`. Updating these metadata fields allow the filtering of Game Sessions in the `List` function based on the properties values.
+Each of metadata's expected keys are optional, and only if any is present with a value will it overwrite the current value in the Nakama Storage Index.
+The expected RPC payload is the following:
+```json
+{
+  "id": "<Game Session ARN>",
+  "playerCount": 10,
+  "metadata": {
+    "GameSessionData": "<game_session_data>",
+    "GameSessionName": "<game_session_name>",
+    "GameProperties": {
+      "key1": "value1",
+      "key2": "value2"
+    }
+  }
+}
+```
+
+#### Delete RPC
+* RpcId: `delete_instance_info`
+
+This RPC should be invoked any time a Game Session terminates.
+The expected RPC payload is the following:
+```json
+{
+  "id": "<Game Session ARN>"
 }
 ```
 
