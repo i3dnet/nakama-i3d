@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/heroiclabs/nakama-common/runtime"
 	config "github.com/i3dnet/nakama-i3d/config"
 	"github.com/i3dnet/nakama-i3d/internal/clients"
@@ -225,7 +226,11 @@ func (fm *I3dFleetManager) Create(ctx context.Context, maxPlayers int, userIds [
 				sessions = append(sessions, &runtime.SessionInfo{UserId: userId})
 			}
 			if err = operationCtx.Err(); err == nil {
-				err = fm.storage.UpdateStorageGameSession(operationCtx, []*runtime.InstanceInfo{instance})
+				applicationID := fm.cfg.ApplicationId
+				if override, ok := requestMetadata[clients.ApplicationId]; ok {
+					applicationID = fmt.Sprint(override)
+				}
+				err = fm.storage.CreateGameSession(operationCtx, instance, applicationID, userIds)
 			}
 		}
 		result <- outcome{instance, sessions, err}
@@ -272,46 +277,53 @@ func (fm *I3dFleetManager) shutdown(ctx context.Context) {
 	}
 }
 
-// The Join method is there to allow the Fleet Manager to join a user to an instance but this is not implemented by i3d.
-func (fm *I3dFleetManager) Join(ctx context.Context, id string, userIds []string, metadata map[string]string) (joinInfo *runtime.JoinInfo, err error) {
-	instance, err := fm.storage.GetGameSessionFromStorage(ctx, id)
-	if err != nil {
-		return nil, err
+// Join performs local admission accounting; it does not issue expiring provider tokens.
+func (fm *I3dFleetManager) Join(ctx context.Context, id string, userIds []string, metadata map[string]string) (*runtime.JoinInfo, error) {
+	if strings.TrimSpace(id) == "" {
+		return nil, ErrInvalidInput
 	}
-
-	sessionInfo := make([]*runtime.SessionInfo, 0, len(userIds))
-	maxPlayers, err := getMaxPlayers(instance)
-	if err != nil {
-		fm.logger.WithField("error", err.Error()).Error("failed to get max players")
-		return nil, err
-	}
-
-	currentPlayers := instance.PlayerCount
-	for _, userId := range userIds {
-
-		// when there are more players that want to join than available slots
-		// we will break the join, this is on the implementation of the plugin to handle this
-		if currentPlayers >= maxPlayers {
-			break
+	for _, userID := range userIds {
+		if userID == "" {
+			return nil, ErrInvalidInput
 		}
-
-		sessionInfo = append(sessionInfo, &runtime.SessionInfo{
-			UserId: userId,
-		})
-
-		currentPlayers++
 	}
-
-	instance.PlayerCount = currentPlayers
-	if err = fm.storage.UpdateStorageGameSession(ctx, []*runtime.InstanceInfo{instance}); err != nil {
-		fm.logger.WithField("error", err.Error()).Error("failed to update storage")
+	var sessions []*runtime.SessionInfo
+	instance, err := fm.storage.MutateGameSession(ctx, id, false, func(instance *runtime.InstanceInfo, joined map[string]bool) error {
+		// The mutation may be retried after another Nakama node updates the record.
+		sessions = nil
+		if instance.Status != clients.ApplicationInstanceStatus[5] {
+			return runtime.NewError("instance is not allocated", FAILED_PRECONDITION)
+		}
+		capacity, err := getMaxPlayers(instance)
+		if err != nil {
+			fm.logger.Error("failed to get max players")
+			return err
+		}
+		if instance.PlayerCount < 0 || instance.PlayerCount > capacity {
+			return fmt.Errorf("invalid stored player count")
+		}
+		requestUsers := make(map[string]bool, len(userIds))
+		for _, userID := range userIds {
+			if requestUsers[userID] {
+				continue
+			}
+			requestUsers[userID] = true
+			if !joined[userID] {
+				if instance.PlayerCount >= capacity {
+					continue
+				}
+				joined[userID] = true
+				instance.PlayerCount++
+			}
+			sessions = append(sessions, &runtime.SessionInfo{UserId: userID})
+		}
+		return nil
+	})
+	if err != nil {
+		fm.logger.Error("failed to update storage")
 		return nil, err
 	}
-
-	return &runtime.JoinInfo{
-		InstanceInfo: instance,
-		SessionInfo:  sessionInfo,
-	}, nil
+	return &runtime.JoinInfo{InstanceInfo: instance, SessionInfo: sessions}, nil
 }
 
 // UpdateInstanceInfo updates the instance in the Fleet Manager API
@@ -379,6 +391,9 @@ func (fm *I3dFleetManager) DeleteInstanceInfo(ctx context.Context, logger runtim
 
 // Update updates the instance in the Fleet Manager API
 func (fm *I3dFleetManager) Update(ctx context.Context, id string, playerCount int, metadata map[string]any) error {
+	if playerCount < 0 || strings.TrimSpace(id) == "" {
+		return ErrInvalidInput
+	}
 	fm.logger.WithField("method_name", "Update").Debug("FleetManager - Entered Update Method")
 	fm.logger.WithField("instance_id", id).Debug("processing update on api")
 
@@ -387,14 +402,16 @@ func (fm *I3dFleetManager) Update(ctx context.Context, id string, playerCount in
 		return err
 	}
 
-	// updating the instance with the concern of Nakama
-	instance.PlayerCount = playerCount
-
-	//  updating the storage
-	err = fm.storage.UpdateStorageGameSession(ctx, []*runtime.InstanceInfo{instance})
-
+	_, err = fm.storage.MutateGameSession(ctx, id, true, func(stored *runtime.InstanceInfo, joined map[string]bool) error {
+		if err := storage.MergeProviderInstance(stored, instance); err != nil {
+			return err
+		}
+		stored.PlayerCount = playerCount
+		// The authoritative report replaces the local admission estimate.
+		clear(joined)
+		return nil
+	})
 	if err != nil {
-		fm.logger.WithField("error", err.Error()).Error("failed to update storage")
 		return err
 	}
 

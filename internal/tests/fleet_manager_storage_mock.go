@@ -41,6 +41,44 @@ func (m *MockFleetManagerStorage) EXPECT() *MockFleetManagerStorageMockRecorder 
 	return m.recorder
 }
 
+// CreateGameSession mocks base method.
+func (m *MockFleetManagerStorage) CreateGameSession(ctx context.Context, instance *runtime.InstanceInfo, applicationID string, userIDs []string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateGameSession", ctx, instance, applicationID, userIDs)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// CreateGameSession indicates an expected call of CreateGameSession.
+func (mr *MockFleetManagerStorageMockRecorder) CreateGameSession(ctx, instance, applicationID, userIDs any) *MockFleetManagerStorageCreateGameSessionCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateGameSession", reflect.TypeOf((*MockFleetManagerStorage)(nil).CreateGameSession), ctx, instance, applicationID, userIDs)
+	return &MockFleetManagerStorageCreateGameSessionCall{Call: call}
+}
+
+// MockFleetManagerStorageCreateGameSessionCall wrap *gomock.Call
+type MockFleetManagerStorageCreateGameSessionCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockFleetManagerStorageCreateGameSessionCall) Return(arg0 error) *MockFleetManagerStorageCreateGameSessionCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockFleetManagerStorageCreateGameSessionCall) Do(f func(context.Context, *runtime.InstanceInfo, string, []string) error) *MockFleetManagerStorageCreateGameSessionCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockFleetManagerStorageCreateGameSessionCall) DoAndReturn(f func(context.Context, *runtime.InstanceInfo, string, []string) error) *MockFleetManagerStorageCreateGameSessionCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // DeleteStorageGameSession mocks base method.
 func (m *MockFleetManagerStorage) DeleteStorageGameSession(ctx context.Context, ids []string) error {
 	m.ctrl.T.Helper()
@@ -154,6 +192,45 @@ func (c *MockFleetManagerStorageListGameSessionsFromStorageCall) Do(f func(conte
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockFleetManagerStorageListGameSessionsFromStorageCall) DoAndReturn(f func(context.Context, string, int, []string, string) ([]*runtime.InstanceInfo, string, error)) *MockFleetManagerStorageListGameSessionsFromStorageCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// MutateGameSession mocks base method.
+func (m *MockFleetManagerStorage) MutateGameSession(ctx context.Context, id string, create bool, fn func(*runtime.InstanceInfo, map[string]bool) error) (*runtime.InstanceInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "MutateGameSession", ctx, id, create, fn)
+	ret0, _ := ret[0].(*runtime.InstanceInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// MutateGameSession indicates an expected call of MutateGameSession.
+func (mr *MockFleetManagerStorageMockRecorder) MutateGameSession(ctx, id, create, fn any) *MockFleetManagerStorageMutateGameSessionCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MutateGameSession", reflect.TypeOf((*MockFleetManagerStorage)(nil).MutateGameSession), ctx, id, create, fn)
+	return &MockFleetManagerStorageMutateGameSessionCall{Call: call}
+}
+
+// MockFleetManagerStorageMutateGameSessionCall wrap *gomock.Call
+type MockFleetManagerStorageMutateGameSessionCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockFleetManagerStorageMutateGameSessionCall) Return(arg0 *runtime.InstanceInfo, arg1 error) *MockFleetManagerStorageMutateGameSessionCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockFleetManagerStorageMutateGameSessionCall) Do(f func(context.Context, string, bool, func(*runtime.InstanceInfo, map[string]bool) error) (*runtime.InstanceInfo, error)) *MockFleetManagerStorageMutateGameSessionCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockFleetManagerStorageMutateGameSessionCall) DoAndReturn(f func(context.Context, string, bool, func(*runtime.InstanceInfo, map[string]bool) error) (*runtime.InstanceInfo, error)) *MockFleetManagerStorageMutateGameSessionCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

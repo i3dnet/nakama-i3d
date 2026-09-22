@@ -98,7 +98,7 @@ func TestCreateSurvivesHookCancellationAndPersistsBeforeCallback(t *testing.T) {
 		}
 		return instance, nil
 	})
-	cache.EXPECT().UpdateStorageGameSession(gomock.Any(), gomock.Any()).DoAndReturn(func(context.Context, []*runtime.InstanceInfo) error { close(stored); return nil })
+	cache.EXPECT().CreateGameSession(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(context.Context, *runtime.InstanceInfo, string, []string) error { close(stored); return nil })
 	result := make(chan createResult, 2)
 	_, err := fm.Create(hook, 4, []string{"player"}, nil, map[string]any{"map": "arena"}, func(s runtime.FmCreateStatus, i *runtime.InstanceInfo, users []*runtime.SessionInfo, m map[string]any, e error) {
 		select {
@@ -150,7 +150,7 @@ func TestCreateRejectsInvalidRequestsBeforeRegisteringCallback(t *testing.T) {
 func TestCreateStorageFailureIsTerminalError(t *testing.T) {
 	fm, client, cache, _, _ := createFixture(t)
 	client.EXPECT().AllocateApplicationInstance(gomock.Any(), gomock.Any(), gomock.Any()).Return(&runtime.InstanceInfo{Id: "instance", Metadata: map[string]any{}}, nil)
-	cache.EXPECT().UpdateStorageGameSession(gomock.Any(), gomock.Any()).Return(errors.New("storage unavailable"))
+	cache.EXPECT().CreateGameSession(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(errors.New("storage unavailable"))
 	result := make(chan createResult, 2)
 	_, err := fm.Create(context.Background(), 2, nil, nil, nil, resultCallback(result))
 	require.NoError(t, err)
@@ -165,7 +165,7 @@ func TestCreateStorageFailureIsTerminalError(t *testing.T) {
 func TestCreateNoUsersReturnsNilSessions(t *testing.T) {
 	fm, client, cache, _, _ := createFixture(t)
 	client.EXPECT().AllocateApplicationInstance(gomock.Any(), gomock.Any(), gomock.Any()).Return(&runtime.InstanceInfo{Id: "instance", Metadata: map[string]any{}}, nil)
-	cache.EXPECT().UpdateStorageGameSession(gomock.Any(), gomock.Any()).Return(nil)
+	cache.EXPECT().CreateGameSession(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 	result := make(chan createResult, 1)
 	_, err := fm.Create(context.Background(), 2, nil, nil, nil, resultCallback(result))
 	require.NoError(t, err)
@@ -222,7 +222,7 @@ func TestCreateTimeoutIgnoresLateCompletion(t *testing.T) {
 func TestCreateNilCallbackDoesNotRegister(t *testing.T) {
 	fm, client, cache, registry, _ := createFixture(t)
 	client.EXPECT().AllocateApplicationInstance(gomock.Any(), gomock.Any(), gomock.Any()).Return(&runtime.InstanceInfo{Id: "instance"}, nil)
-	cache.EXPECT().UpdateStorageGameSession(gomock.Any(), gomock.Any()).Return(nil)
+	cache.EXPECT().CreateGameSession(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 	_, err := fm.Create(context.Background(), 2, nil, nil, nil, nil)
 	require.NoError(t, err)
 	fm.operations.Wait()
