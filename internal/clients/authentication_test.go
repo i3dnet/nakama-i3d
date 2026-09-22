@@ -1,11 +1,12 @@
 package clients
 
 import (
+	"context"
 	"fmt"
 	"github.com/heroiclabs/nakama-common/runtime"
-	"github.com/stretchr/testify/suite"
 	"github.com/i3dnet/nakama-i3d/config"
 	"github.com/i3dnet/nakama-i3d/internal/tests"
+	"github.com/stretchr/testify/suite"
 	"io"
 	"net/http"
 	"strings"
@@ -80,7 +81,7 @@ func (suite *AuthenticationServiceTestSuite) TestGetAccessToken_success() {
 	client := suite.NewAuthenticationService(newMockRoundTripper(response, nil))
 
 	// Act
-	result, err := client.GetAccessToken()
+	result, err := client.GetAccessToken(context.Background())
 
 	// Assert
 	suite.NoError(err)
@@ -97,7 +98,7 @@ func (suite *AuthenticationServiceTestSuite) TestGetAccessToken_WhenTokenIsNotEx
 	client.expiresAt = time.Now().Add(time.Duration(expiresIn) * time.Second)
 
 	// Act
-	result, err := client.GetAccessToken()
+	result, err := client.GetAccessToken(context.Background())
 
 	// Assert
 	suite.NoError(err)
@@ -113,7 +114,7 @@ func (suite *AuthenticationServiceTestSuite) TestGetAccessToken_failed() {
 	client := suite.NewAuthenticationService(newMockRoundTripper(response, nil))
 
 	// Act
-	result, err := client.GetAccessToken()
+	result, err := client.GetAccessToken(context.Background())
 
 	// Assert
 	suite.NotNil(err)

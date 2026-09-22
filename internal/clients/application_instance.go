@@ -46,7 +46,10 @@ var ApplicationInstanceStatus = map[int32]string{
 }
 
 func (o *OneApiClient) ListApplicationInstances(ctx context.Context, filters string, limit int, previousCursor string) (*ApplicationInstanceListResponse, error) {
-	client := o.GetClient()
+	client, err := o.GetClient(ctx)
+	if err != nil {
+		return nil, err
+	}
 	request := client.ApplicationInstanceAPI.GetApplicationInstances(ctx)
 	if filters != "" {
 		request = request.Filters(filters)
@@ -55,7 +58,7 @@ func (o *OneApiClient) ListApplicationInstances(ctx context.Context, filters str
 	request = request.RANGEDDATA(createRangedData(limit))
 	request = request.PAGETOKEN(previousCursor)
 
-	applicationInstances, response, err := request.Execute()
+	applicationInstances, response, err := executeRead(ctx, o, request.Execute)
 	if err != nil {
 		o.logger.WithField("error", err.Error()).Error("failed to get Instances")
 		return nil, err
@@ -78,9 +81,12 @@ func (o *OneApiClient) ListApplicationInstances(ctx context.Context, filters str
 }
 
 func (o *OneApiClient) GetApplicationInstance(ctx context.Context, instanceID string) (*runtime.InstanceInfo, error) {
-	client := o.GetClient()
+	client, err := o.GetClient(ctx)
+	if err != nil {
+		return nil, err
+	}
 	request := client.ApplicationInstanceAPI.GetApplicationInstance(ctx, instanceID)
-	response, _, err := request.Execute()
+	response, _, err := executeRead(ctx, o, request.Execute)
 	if err != nil {
 		o.logger.WithField("error", err.Error()).Error("failed to get instance")
 		return nil, err
@@ -107,7 +113,10 @@ func (o *OneApiClient) getApplicationId(metaData map[string]any) string {
 }
 
 func (o *OneApiClient) AllocateApplicationInstance(ctx context.Context, metaData map[string]any, filters string) (*runtime.InstanceInfo, error) {
-	client := o.GetClient()
+	client, err := o.GetClient(ctx)
+	if err != nil {
+		return nil, err
+	}
 	request := client.ApplicationInstanceAPI.UpdateApplicationInstanceGameEmptyAllocate(ctx, o.getApplicationId(metaData))
 	if filters != "" {
 		request = request.Filters(filters)
@@ -115,17 +124,8 @@ func (o *OneApiClient) AllocateApplicationInstance(ctx context.Context, metaData
 
 	request = request.MetadataCollection(createMetaData(metaData))
 
-	var response []openapi.ApplicationInstance
-
-	err := o.RetryExecutor.Run(o.cfg.Attempts, func() error {
-		result, _, err := request.Execute()
-		if err != nil {
-			o.logger.WithField("error", err.Error()).Error("failed to allocate instance")
-			return err
-		}
-		response = result
-		return nil
-	})
+	// Allocation is not idempotent: an ambiguous failure may already have allocated.
+	response, _, err := request.Execute()
 
 	if err != nil {
 		o.logger.WithField("error", err.Error()).Error("failed to allocate instance")
@@ -148,12 +148,20 @@ func (o *OneApiClient) AllocateApplicationInstance(ctx context.Context, metaData
 }
 
 func (o *OneApiClient) RestartApplicationInstance(ctx context.Context, instanceID string) error {
-	_, _, err := o.GetClient().ApplicationInstanceAPI.CreateApplicationInstanceRestart(ctx, instanceID).Execute()
+	client, err := o.GetClient(ctx)
+	if err != nil {
+		return err
+	}
+	_, _, err = client.ApplicationInstanceAPI.CreateApplicationInstanceRestart(ctx, instanceID).Execute()
 	return err
 }
 
 func (o *OneApiClient) UpdateApplicationInstance(ctx context.Context, instanceID string, metaData map[string]any) (*runtime.InstanceInfo, error) {
-	appInstances, _, err := o.GetClient().ApplicationInstanceAPI.GetApplicationInstance(ctx, instanceID).Execute()
+	client, err := o.GetClient(ctx)
+	if err != nil {
+		return nil, err
+	}
+	appInstances, _, err := executeRead(ctx, o, client.ApplicationInstanceAPI.GetApplicationInstance(ctx, instanceID).Execute)
 
 	if err != nil {
 		return nil, err
@@ -167,7 +175,7 @@ func (o *OneApiClient) UpdateApplicationInstance(ctx context.Context, instanceID
 	}
 	appInstance.Metadata = createMetaData(metaData).Metadata
 
-	request := o.GetClient().ApplicationInstanceAPI.UpdateApplicationInstance(ctx, instanceID).ApplicationInstance(appInstance)
+	request := client.ApplicationInstanceAPI.UpdateApplicationInstance(ctx, instanceID).ApplicationInstance(appInstance)
 	updated, _, err := request.Execute()
 
 	if err != nil {

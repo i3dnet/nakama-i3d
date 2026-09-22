@@ -92,7 +92,7 @@ func (suite *ApplicationInstanceTestSuite) TestGetApplicationInstance_success() 
 
 	// setting up mock
 	auth.EXPECT().IsExpired().Return(false).AnyTimes()
-	auth.EXPECT().GetAccessToken().Times(0)
+	auth.EXPECT().GetAccessToken(gomock.Any()).Times(0)
 	const port = 1234
 	const ipAddress = "127.0.0.1"
 	// create a mock response
@@ -133,7 +133,7 @@ func (suite *ApplicationInstanceTestSuite) TestGetApplicationInstance_whenPrivat
 
 	// setting up mock
 	auth.EXPECT().IsExpired().Return(false).AnyTimes()
-	auth.EXPECT().GetAccessToken().Times(0)
+	auth.EXPECT().GetAccessToken(gomock.Any()).Times(0)
 	const port = 1234
 	const ipAddress = "90.80.10.12"
 	// create a mock response
@@ -179,7 +179,7 @@ func (suite *ApplicationInstanceTestSuite) TestGetApplicationInstance_failed() {
 
 	// setting up mock
 	auth.EXPECT().IsExpired().Return(false).AnyTimes()
-	auth.EXPECT().GetAccessToken().Times(0)
+	auth.EXPECT().GetAccessToken(gomock.Any()).Times(0)
 
 	// create a mock response
 	instance := applicationInstanceMock([]openapi.ApplicationInstanceIP{
@@ -219,7 +219,7 @@ func (suite *ApplicationInstanceTestSuite) TestListApplicationInstances_success(
 
 	// setting up mock
 	auth.EXPECT().IsExpired().Return(false).AnyTimes()
-	auth.EXPECT().GetAccessToken().Times(0)
+	auth.EXPECT().GetAccessToken(gomock.Any()).Times(0)
 	const port1 = 1234
 	const ipAddress1 = "127.0.0.1"
 	const port2 = 1235
@@ -282,7 +282,7 @@ func (suite *ApplicationInstanceTestSuite) TestListApplicationInstances_failed()
 
 	// setting up mock
 	auth.EXPECT().IsExpired().Return(false).AnyTimes()
-	auth.EXPECT().GetAccessToken().Times(0)
+	auth.EXPECT().GetAccessToken(gomock.Any()).Times(0)
 	const port1 = 1234
 	const ipAddress1 = "127.0.0.1"
 	const port2 = 1235
@@ -341,7 +341,7 @@ func (suite *ApplicationInstanceTestSuite) TestAllocateApplicationInstance_succe
 
 	// setting up mock
 	auth.EXPECT().IsExpired().Return(false).AnyTimes()
-	auth.EXPECT().GetAccessToken().Times(0)
+	auth.EXPECT().GetAccessToken(gomock.Any()).Times(0)
 	const port = 1234
 	const ipAddress = "127.0.0.1"
 	// create a mock response
@@ -394,7 +394,7 @@ func (suite *ApplicationInstanceTestSuite) TestAllocateApplicationInstance_faile
 
 	// setting up mock
 	auth.EXPECT().IsExpired().Return(false).AnyTimes()
-	auth.EXPECT().GetAccessToken().Times(0)
+	auth.EXPECT().GetAccessToken(gomock.Any()).Times(0)
 	const port = 1234
 	const ipAddress = "127.0.0.1"
 
@@ -440,7 +440,7 @@ func (suite *ApplicationInstanceTestSuite) TestRestartApplicationInstance_succes
 
 	// setting up mock
 	auth.EXPECT().IsExpired().Return(false).AnyTimes()
-	auth.EXPECT().GetAccessToken().Times(0)
+	auth.EXPECT().GetAccessToken(gomock.Any()).Times(0)
 	const port = 1234
 	const ipAddress = "90.80.10.12"
 	// create a mock response
@@ -482,7 +482,7 @@ func (suite *ApplicationInstanceTestSuite) TestRestartApplicationInstance_failed
 
 	// setting up mock
 	auth.EXPECT().IsExpired().Return(false).AnyTimes()
-	auth.EXPECT().GetAccessToken().Times(0)
+	auth.EXPECT().GetAccessToken(gomock.Any()).Times(0)
 
 	// create a mock response
 	instance := applicationInstanceMock([]openapi.ApplicationInstanceIP{
@@ -521,7 +521,7 @@ func (suite *ApplicationInstanceTestSuite) TestUpdateApplicationInstance_success
 
 	// setting up mock
 	auth.EXPECT().IsExpired().Return(false).AnyTimes()
-	auth.EXPECT().GetAccessToken().Times(0)
+	auth.EXPECT().GetAccessToken(gomock.Any()).Times(0)
 	const port = 1234
 	const ipAddress = "127.0.0.1"
 	// create a mock response
@@ -575,7 +575,7 @@ func (suite *ApplicationInstanceTestSuite) TestUpdateApplicationInstance_failed(
 
 	// setting up mock
 	auth.EXPECT().IsExpired().Return(false).AnyTimes()
-	auth.EXPECT().GetAccessToken().Times(0)
+	auth.EXPECT().GetAccessToken(gomock.Any()).Times(0)
 	const port = 1234
 	const ipAddress = "127.0.0.1"
 

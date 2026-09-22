@@ -1,10 +1,11 @@
 package clients
 
 import (
+	"context"
 	"errors"
-	"github.com/stretchr/testify/suite"
 	"github.com/i3dnet/nakama-i3d/config"
 	"github.com/i3dnet/nakama-i3d/internal/tests"
+	"github.com/stretchr/testify/suite"
 	"testing"
 	"time"
 )
@@ -29,7 +30,7 @@ func (s *RetryExecutorTestSuite) TestSuccessOnFirstTry() {
 	executor := NewRetryExecutor(s.logger, s.cfg, func(err error) bool { return true })
 
 	var callCount int
-	err := executor.Run(3, func() error {
+	err := executor.Run(context.Background(), 3, func() error {
 		callCount++
 		return nil
 	})
@@ -42,7 +43,7 @@ func (s *RetryExecutorTestSuite) TestSuccessAfterRetry() {
 	executor := NewRetryExecutor(s.logger, s.cfg, func(err error) bool { return true })
 
 	var callCount int
-	err := executor.Run(3, func() error {
+	err := executor.Run(context.Background(), 3, func() error {
 		callCount++
 		if callCount < 2 {
 			return errors.New("temporary failure")
@@ -57,7 +58,7 @@ func (s *RetryExecutorTestSuite) TestSuccessAfterRetry() {
 func (s *RetryExecutorTestSuite) TestFailsAfterAllAttempts() {
 	executor := NewRetryExecutor(s.logger, s.cfg, func(err error) bool { return true })
 
-	err := executor.Run(3, func() error {
+	err := executor.Run(context.Background(), 3, func() error {
 		return errors.New("always fails")
 	})
 
@@ -69,7 +70,7 @@ func (s *RetryExecutorTestSuite) TestShouldRetryFalse() {
 	executor := NewRetryExecutor(s.logger, s.cfg, func(err error) bool { return false })
 
 	var callCount int
-	err := executor.Run(3, func() error {
+	err := executor.Run(context.Background(), 3, func() error {
 		callCount++
 		return errors.New("non-retriable")
 	})
