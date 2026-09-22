@@ -54,3 +54,18 @@ jobs:
           go-version: '1.24.1'
           cache-dependency-path: nakama_test_client/src/go.sum
       - run: sh scripts/smoke.sh
+
+  consumer:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.27.1'
+          cache-dependency-path: go.sum
+      - run: python3 scripts/check-docs.py
+      - if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+        env:
+          CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: bash scripts/check-install.sh "$CANDIDATE_SHA"

@@ -1,0 +1,2 @@
+# Preserve the historical partner draft byte-for-byte, including whitespace.
+docs/drafts/2026-09-22-online-docs.previous.md whitespace=-blank-at-eol
