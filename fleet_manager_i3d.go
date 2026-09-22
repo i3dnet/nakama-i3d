@@ -3,14 +3,24 @@ package fleetmanager
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
+	"errors"
 	"github.com/heroiclabs/nakama-common/runtime"
 	config "github.com/i3dnet/nakama-i3d/config"
 	"github.com/i3dnet/nakama-i3d/internal/clients"
 	"github.com/i3dnet/nakama-i3d/internal/storage"
+	"sync"
+	"time"
 )
+
+var _ runtime.FleetManagerInitializer = (*I3dFleetManager)(nil)
 
 type I3dFleetManager struct {
 	ctx             context.Context
+	cancel          context.CancelFunc
+	lifecycleMu     sync.Mutex
+	stopping        bool
+	operations      sync.WaitGroup
 	client          clients.ApplicationInstance
 	logger          runtime.Logger
 	nk              runtime.NakamaModule
@@ -28,6 +38,16 @@ func NewI3dFleetManager(
 	cfg *config.Config,
 ) (runtime.FleetManagerInitializer, error) {
 
+	if cfg == nil {
+		return nil, ErrInvalidInput
+	}
+	lifetime, cancel := context.WithCancel(context.WithoutCancel(ctx))
+	success := false
+	defer func() {
+		if !success {
+			cancel()
+		}
+	}()
 	client := clients.NewOneApiClient(cfg, clients.NewAuthentication(cfg), logger)
 
 	storageService, err := storage.NewFleetManagerStorageService(nk, initializer, logger)
@@ -37,7 +57,8 @@ func NewI3dFleetManager(
 	}
 
 	fm := &I3dFleetManager{
-		ctx:     ctx,
+		ctx:     lifetime,
+		cancel:  cancel,
 		client:  client,
 		logger:  logger,
 		nk:      nk,
@@ -55,6 +76,10 @@ func NewI3dFleetManager(
 		return nil, err
 	}
 
+	if err = initializer.RegisterShutdown(func(ctx context.Context, _ runtime.Logger, _ *sql.DB, _ runtime.NakamaModule) { fm.shutdown(ctx) }); err != nil {
+		return nil, err
+	}
+	success = true
 	return fm, nil
 }
 
@@ -62,14 +87,6 @@ func NewI3dFleetManager(
 func (fm *I3dFleetManager) Init(nk runtime.NakamaModule, callbackHandler runtime.FmCallbackHandler) error {
 	fm.logger.WithField("method_name", "Init").Debug("FleetManager - Entered Init Method")
 
-	// do small api test
-	foundInstances, err := fm.client.ListApplicationInstances(fm.ctx, "", 1, "")
-
-	if err != nil {
-		fm.logger.WithField("error", err.Error()).Error("failed to list instances")
-	}
-
-	fm.logger.WithField("found_instances", foundInstances).Debug("found instances")
 	fm.nk = nk
 	fm.callbackHandler = callbackHandler
 
@@ -128,55 +145,118 @@ func (fm *I3dFleetManager) List(ctx context.Context, query string, limit int, pr
 }
 
 // Create creates a new instance in the Fleet Manager API
-func (fm *I3dFleetManager) Create(ctx context.Context, maxPlayers int, userIds []string, latencies []runtime.FleetUserLatencies, metadata map[string]any, callback runtime.FmCreateCallbackFn) error {
-	fm.logger.WithField("method_name", "Create").Info("FleetManager - Entered Create Method")
+func (fm *I3dFleetManager) Create(ctx context.Context, maxPlayers int, userIds []string, latencies []runtime.FleetUserLatencies, metadata map[string]any, callback runtime.FmCreateCallbackFn) (map[string]string, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if maxPlayers <= 0 || len(userIds) > maxPlayers {
+		return nil, ErrInvalidInput
+	}
+	seen := make(map[string]struct{}, len(userIds))
+	for _, id := range userIds {
+		if _, duplicate := seen[id]; id == "" || duplicate {
+			return nil, ErrInvalidInput
+		}
+		seen[id] = struct{}{}
+	}
+	// Own the accepted request; callers may reuse their maps/slices after returning.
+	encoded, err := json.Marshal(metadata)
+	if err != nil {
+		return nil, ErrInvalidInput
+	}
+	var requestMetadata map[string]any
+	if err = json.Unmarshal(encoded, &requestMetadata); err != nil {
+		return nil, ErrInvalidInput
+	}
+	userIds = append([]string(nil), userIds...)
 
-	id := fm.callbackHandler.GenerateCallbackId()
-
+	fm.lifecycleMu.Lock()
+	if fm.stopping || fm.ctx.Err() != nil || fm.callbackHandler == nil {
+		fm.lifecycleMu.Unlock()
+		return nil, runtime.NewError("fleet manager is not running", UNAVAILABLE)
+	}
+	timeout := fm.cfg.AllocationTimeout
+	if timeout == 0 {
+		timeout = 120 * time.Second
+	}
+	operationCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), timeout)
+	stopShutdown := context.AfterFunc(fm.ctx, cancel)
+	id := ""
 	if callback != nil {
+		id = fm.callbackHandler.GenerateCallbackId()
 		fm.callbackHandler.SetCallback(id, callback)
 	}
+	fm.operations.Add(2)
+	fm.lifecycleMu.Unlock()
 
-	go func(ctx context.Context, callbackId string, callBackHandler runtime.FmCallbackHandler) {
-		instance, err := fm.client.AllocateApplicationInstance(ctx, metadata, GetFilters(metadata))
-		if err != nil {
-			go callBackHandler.InvokeCallback(
-				callbackId,
-				runtime.CreateError,
-				nil, nil,
-				metadata,
-				err,
-			)
+	type outcome struct {
+		instance *runtime.InstanceInfo
+		sessions []*runtime.SessionInfo
+		err      error
+	}
+	result := make(chan outcome, 1)
+	go func() {
+		defer fm.operations.Done()
+		instance, err := fm.client.AllocateApplicationInstance(operationCtx, requestMetadata, GetFilters(requestMetadata))
+		if err == nil && instance == nil {
+			err = errors.New("allocation returned no instance")
+		}
+		var sessions []*runtime.SessionInfo
+		if err == nil {
+			if instance.Metadata == nil {
+				instance.Metadata = make(map[string]any)
+			}
+			instance.PlayerCount = len(userIds)
+			instance.Metadata[MaxPlayers] = maxPlayers
+			for _, userId := range userIds {
+				sessions = append(sessions, &runtime.SessionInfo{UserId: userId})
+			}
+			if err = operationCtx.Err(); err == nil {
+				err = fm.storage.UpdateStorageGameSession(operationCtx, []*runtime.InstanceInfo{instance})
+			}
+		}
+		result <- outcome{instance, sessions, err}
+	}()
+	go func() {
+		defer fm.operations.Done()
+		defer cancel()
+		defer stopShutdown()
+		var completed outcome
+		select {
+		case completed = <-result:
+			if operationCtx.Err() != nil {
+				completed.err = operationCtx.Err()
+			}
+		case <-operationCtx.Done():
+			completed.err = operationCtx.Err()
+		}
+		if callback == nil {
+			if completed.err != nil {
+				fm.logger.Error("allocation failed: %v", completed.err)
+			}
 			return
 		}
-
-		// updating the instance with the concern of Nakama
-		instance.PlayerCount = len(userIds)
-		instance.Metadata[MaxPlayers] = maxPlayers
-
-		var sessionInfo = make([]*runtime.SessionInfo, 0, len(userIds))
-
-		for _, userId := range userIds {
-			sessionInfo = append(sessionInfo, &runtime.SessionInfo{UserId: userId})
+		if completed.err != nil {
+			fm.callbackHandler.InvokeCallback(id, runtime.CreateError, nil, nil, nil, completed.err)
+			return
 		}
+		fm.callbackHandler.InvokeCallback(id, runtime.CreateSuccess, completed.instance, completed.sessions, requestMetadata, nil)
+	}()
+	return nil, nil
+}
 
-		go callBackHandler.InvokeCallback(
-			id,
-			runtime.CreateSuccess,
-			instance,
-			sessionInfo,
-			metadata,
-			nil,
-		)
-
-		//  updating the storage
-		if err = fm.storage.UpdateStorageGameSession(ctx, []*runtime.InstanceInfo{instance}); err != nil {
-			fm.logger.WithField("error", err).Error("error writing to Nakama storage after starting session")
-		}
-
-	}(ctx, id, fm.callbackHandler)
-
-	return nil
+// shutdown cancels accepted operations and waits within Nakama's grace period.
+func (fm *I3dFleetManager) shutdown(ctx context.Context) {
+	fm.lifecycleMu.Lock()
+	fm.stopping = true
+	fm.cancel()
+	fm.lifecycleMu.Unlock()
+	done := make(chan struct{})
+	go func() { fm.operations.Wait(); close(done) }()
+	select {
+	case <-done:
+	case <-ctx.Done():
+	}
 }
 
 // The Join method is there to allow the Fleet Manager to join a user to an instance but this is not implemented by i3d.

@@ -4,9 +4,10 @@ package main
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"github.com/heroiclabs/nakama-common/runtime"
-	"github.com/i3dnet/nakama-i3d/config"
 	"github.com/i3dnet/nakama-i3d"
+	"github.com/i3dnet/nakama-i3d/config"
 
 	"time"
 )
@@ -67,6 +68,9 @@ func InitModule(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runti
 func MatchmakerMatched(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runtime.NakamaModule, entries []runtime.MatchmakerEntry) (string, error) {
 	logger.Debug("MatchmakerMatched called")
 
+	if len(entries) == 0 {
+		return "", fmt.Errorf("no matchmaker entries")
+	}
 	// Get the passed in properties of the first entry
 	properties := entries[0].GetProperties()
 	logger.Debug("Properties: %v", properties)
@@ -89,6 +93,12 @@ func MatchmakerMatched(ctx context.Context, logger runtime.Logger, db *sql.DB, n
 			return
 		}
 
+		if status != runtime.CreateSuccess || instanceInfo == nil || instanceInfo.ConnectionInfo == nil {
+			logger.Error("allocation has no connection information")
+			return
+		}
+		notificationCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
+		defer cancel()
 		for _, userId := range userIds {
 			// Use the Nakama Instance to Notify each user that the game session has been created and supply IpAddress
 			sessionId, found := getSessionForUserId(sessionInfo, userId)
@@ -100,7 +110,7 @@ func MatchmakerMatched(ctx context.Context, logger runtime.Logger, db *sql.DB, n
 					"SessionId": sessionId,
 				}
 
-				err = nk.NotificationsSend(ctx, []*runtime.NotificationSend{
+				err = nk.NotificationsSend(notificationCtx, []*runtime.NotificationSend{
 					{
 						Code:    9000,
 						UserID:  userId,
@@ -130,7 +140,7 @@ func MatchmakerMatched(ctx context.Context, logger runtime.Logger, db *sql.DB, n
 	maxPlayers := 2
 
 	// Create the game session
-	err := fm.Create(ctx, maxPlayers, userIds, nil, metadata, callback)
+	_, err := fm.Create(ctx, maxPlayers, userIds, nil, metadata, callback)
 	if err != nil {
 		logger.Error("Error creating game session: %v", err)
 		return "", err

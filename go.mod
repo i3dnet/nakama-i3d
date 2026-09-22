@@ -1,11 +1,11 @@
 module github.com/i3dnet/nakama-i3d
 
-go 1.23.5
+go 1.27.1
 
 require (
 	github.com/bxcodec/faker/v4 v4.0.0-beta.3
 	github.com/google/uuid v1.6.0
-	github.com/heroiclabs/nakama-common v1.36.0
+	github.com/heroiclabs/nakama-common v1.48.0
 	github.com/ilyakaznacheev/cleanenv v1.5.0
 	github.com/stretchr/testify v1.10.0
 	go.opentelemetry.io/otel v1.35.0
@@ -24,7 +24,7 @@ require (
 	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
 	go.opentelemetry.io/otel/trace v1.35.0 // indirect
 	golang.org/x/text v0.3.7 // indirect
-	google.golang.org/protobuf v1.36.4 // indirect
+	google.golang.org/protobuf v1.36.12 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	olympos.io/encoding/edn v0.0.0-20201019073823-d3554ca0b0a3 // indirect
 )

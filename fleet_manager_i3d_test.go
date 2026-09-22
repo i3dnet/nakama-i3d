@@ -4,12 +4,12 @@ import (
 	"context"
 	"errors"
 	"github.com/heroiclabs/nakama-common/runtime"
-	"github.com/stretchr/testify/suite"
 	"github.com/i3dnet/nakama-i3d/config"
 	"github.com/i3dnet/nakama-i3d/internal/clients"
 	"github.com/i3dnet/nakama-i3d/internal/storage"
 	"github.com/i3dnet/nakama-i3d/internal/tests"
 	"github.com/i3dnet/nakama-i3d/internal/tests/mock"
+	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
 	"testing"
 	"time"
@@ -25,6 +25,7 @@ type FleetManagerSuite struct {
 }
 
 func (suite *FleetManagerSuite) SetupTest() {
+	suite.ctx = context.Background()
 	suite.cfg = &config.Config{
 		App: config.App{
 			Name:    "test",
@@ -289,7 +290,7 @@ func (suite *FleetManagerSuite) TestCreate_GivenCallback_ShouldCallCallback() {
 
 	var latency []runtime.FleetUserLatencies
 	// act
-	err := suite.newTestFleetManager(client, storageService).Create(suite.ctx, maxPlayerCount, userIds, latency, metaData, callback)
+	_, err := suite.newTestFleetManager(client, storageService).Create(suite.ctx, maxPlayerCount, userIds, latency, metaData, callback)
 
 	// assert
 	suite.NoError(err)
@@ -334,7 +335,7 @@ func (suite *FleetManagerSuite) TestCreate_GivenAllocationFails_ShouldGiveError(
 
 	var latency []runtime.FleetUserLatencies
 	// act
-	err := suite.newTestFleetManager(client, storageService).Create(suite.ctx, maxPlayerCount, userIds, latency, metaData, callback)
+	_, err := suite.newTestFleetManager(client, storageService).Create(suite.ctx, maxPlayerCount, userIds, latency, metaData, callback)
 
 	// assert
 	suite.NoError(err)
@@ -366,7 +367,7 @@ func (suite *FleetManagerSuite) TestCreate_GivenWithOutCallback_ShouldSucceed() 
 
 	var latency []runtime.FleetUserLatencies
 	// act
-	err := suite.newTestFleetManager(client, storageService).Create(suite.ctx, maxPlayerCount, userIds, latency, metaData, nil)
+	_, err := suite.newTestFleetManager(client, storageService).Create(suite.ctx, maxPlayerCount, userIds, latency, metaData, nil)
 
 	// assert
 	suite.NoError(err)
@@ -378,11 +379,10 @@ func (suite *FleetManagerSuite) TestCreate_GivenWithOutCallback_ShouldSucceed() 
 	}
 }
 
-func (suite *FleetManagerSuite) TestCreate_GivenUpdatingStorageFails_ShouldSucceed() {
+func (suite *FleetManagerSuite) TestCreate_GivenUpdatingStorageFails_ShouldFail() {
 	// assert
 	const maxPlayerCount = 10
 	const userId = "1"
-	const expectedErrorMessage = "error writing to Nakama storage after starting session"
 	userIds := []string{userId}
 	metaData := map[string]any{}
 	metaData["key"] = "value"
@@ -403,17 +403,17 @@ func (suite *FleetManagerSuite) TestCreate_GivenUpdatingStorageFails_ShouldSucce
 	done := make(chan struct{})
 
 	var callback runtime.FmCreateCallbackFn = func(status runtime.FmCreateStatus, instanceInfo *runtime.InstanceInfo, sessionInfo []*runtime.SessionInfo, metadata map[string]any, err error) {
-		suite.Equal(runtime.CreateSuccess, status)
-		suite.Equal(expected.Id, instanceInfo.Id)
-		suite.Equal(metaData, metadata)
-		suite.Equal(userId, sessionInfo[0].UserId)
-		suite.Nil(err)
+		suite.Equal(runtime.CreateError, status)
+		suite.Nil(instanceInfo)
+		suite.Nil(metadata)
+		suite.Nil(sessionInfo)
+		suite.Error(err)
 		close(done)
 	}
 
 	var latency []runtime.FleetUserLatencies
 	// act
-	err := suite.newTestFleetManager(client, storageService).Create(suite.ctx, maxPlayerCount, userIds, latency, metaData, callback)
+	_, err := suite.newTestFleetManager(client, storageService).Create(suite.ctx, maxPlayerCount, userIds, latency, metaData, callback)
 
 	// assert
 	suite.NoError(err)
@@ -426,7 +426,6 @@ func (suite *FleetManagerSuite) TestCreate_GivenUpdatingStorageFails_ShouldSucce
 
 	select {
 	case <-done:
-		suite.Eventually(func() bool { return suite.logger.HasError(expectedErrorMessage) }, 2*time.Second, time.Millisecond)
 	case <-time.After(2 * time.Second):
 		suite.T().Fatal("Callback was not invoked in time")
 	}

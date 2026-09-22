@@ -377,7 +377,7 @@ func (c *APIClient) executeWithTracing(ctx context.Context, request *http.Reques
 		bodyBytes, _ := io.ReadAll(resp.Body)
 		resp.Body = io.NopCloser(bytes.NewBuffer(bodyBytes)) // Restore body for further reading
 		errMsg := fmt.Sprintf("Error Response: %s", string(bodyBytes))
-		span.RecordError(fmt.Errorf(errMsg))
+		span.RecordError(fmt.Errorf("%s", errMsg))
 		span.SetAttributes(attribute.String("http.response.body", errMsg))
 		span.SetStatus(codes.Error, errMsg)
 

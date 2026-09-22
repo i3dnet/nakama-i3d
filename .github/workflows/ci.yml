@@ -12,10 +12,10 @@ jobs:
       matrix:
         include:
           - module: '.'
-            go: '1.23.5'
+            go: '1.27.1'
             race: '-race'
           - module: plugin/example/src
-            go: '1.23.5'
+            go: '1.27.1'
             race: ''
           - module: mock_api_server/src
             go: '1.24.1'
@@ -35,3 +35,9 @@ jobs:
       - run: go test -mod=readonly ${{ matrix.race }} -count=1 ./...
       - run: go vet -mod=readonly ./...
       - run: git diff --exit-code -- '**/go.mod' '**/go.sum'
+  plugin:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - run: sh scripts/check-plugin.sh

@@ -15,6 +15,7 @@ import (
 )
 
 type Config struct {
+	AllocationTimeout time.Duration `json:"allocationTimeout" env:"I3D_ALLOCATION_TIMEOUT"`
 	App
 	OneApi `json:"oneApi" env-required:"true"`
 	Retry  `json:"retry" env-required:"true"`
@@ -55,6 +56,7 @@ const (
 
 func defaultConfig() *Config {
 	return &Config{
+		AllocationTimeout: 120 * time.Second,
 		App: App{
 			Name:    "Nakama one plugin",
 			Version: "1.0.0",
