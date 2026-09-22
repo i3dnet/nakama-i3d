@@ -3,7 +3,7 @@ package fleetmanager
 import (
 	"fmt"
 	"github.com/i3dnet/nakama-i3d/internal/clients"
-	"net/url"
+	"strconv"
 	"strings"
 )
 
@@ -43,17 +43,28 @@ func (fb *FilterBuilder) Add(key FilterKey, value string) *FilterBuilder {
 		return fb
 	}
 
+	// Numeric IDs remain numeric; names are quoted before HTTP URL encoding.
+	numeric := value != ""
+	for _, c := range value {
+		if c < '0' || c > '9' {
+			numeric = false
+			break
+		}
+	}
+	if !numeric || strings.HasSuffix(string(key), "Name") {
+		value = strconv.Quote(value)
+	}
 	fb.filters = append(fb.filters, fmt.Sprintf("%s=%s", string(key), value))
 	return fb
 }
 
+// Query returns a raw expression; the HTTP client encodes it exactly once.
 func (fb *FilterBuilder) Query() string {
 	if len(fb.filters) == 0 {
 		return ""
 	}
 
-	raw := strings.Join(fb.filters, " and ")
-	return strings.ReplaceAll(url.QueryEscape(raw), "+", "%20")
+	return strings.Join(fb.filters, " and ")
 }
 
 func (fb *FilterBuilder) Clear() *FilterBuilder {
@@ -66,6 +77,9 @@ func (fb *FilterBuilder) AddFiltersToMetaData(metaData map[string]any) map[strin
 		return metaData
 	}
 
+	if metaData == nil {
+		metaData = make(map[string]any)
+	}
 	metaData[clients.I3dFilters] = fb.Query()
 	return metaData
 }

@@ -5,7 +5,10 @@ import (
 	"fmt"
 	"github.com/heroiclabs/nakama-common/runtime"
 	openapi "github.com/i3dnet/nakama-i3d/internal/openapi"
+	"net"
+	"sort"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -49,8 +52,8 @@ func (o *OneApiClient) ListApplicationInstances(ctx context.Context, filters str
 		request = request.Filters(filters)
 	}
 
-	request.RANGEDDATA(createRangedData(limit))
-	request.PAGETOKEN(previousCursor)
+	request = request.RANGEDDATA(createRangedData(limit))
+	request = request.PAGETOKEN(previousCursor)
 
 	applicationInstances, response, err := request.Execute()
 	if err != nil {
@@ -62,7 +65,7 @@ func (o *OneApiClient) ListApplicationInstances(ctx context.Context, filters str
 		ins, err := o.mapToInstanceInfo(instance)
 		if err != nil {
 			o.logger.WithField("error", err.Error()).Error("failed to map instance")
-			continue
+			return nil, fmt.Errorf("invalid instance in provider page: %w", err)
 		}
 
 		instances = append(instances, ins)
@@ -83,6 +86,9 @@ func (o *OneApiClient) GetApplicationInstance(ctx context.Context, instanceID st
 		return nil, err
 	}
 
+	if len(response) != 1 {
+		return nil, fmt.Errorf("expected one instance, got %d", len(response))
+	}
 	instanceInfo, err := o.mapToInstanceInfo(response[0])
 	if err != nil {
 		o.logger.WithField("error", err.Error()).Error("failed to map instance")
@@ -107,7 +113,7 @@ func (o *OneApiClient) AllocateApplicationInstance(ctx context.Context, metaData
 		request = request.Filters(filters)
 	}
 
-	request.MetadataCollection(createMetaData(metaData))
+	request = request.MetadataCollection(createMetaData(metaData))
 
 	var response []openapi.ApplicationInstance
 
@@ -126,12 +132,18 @@ func (o *OneApiClient) AllocateApplicationInstance(ctx context.Context, metaData
 		return nil, err
 	}
 
+	if len(response) != 1 {
+		return nil, fmt.Errorf("expected one instance, got %d", len(response))
+	}
 	instanceInfo, err := o.mapToInstanceInfo(response[0])
 	if err != nil {
 		o.logger.WithField("error", err.Error()).Error("failed to map instance")
 		return nil, err
 	}
 
+	if instanceInfo.Status != ApplicationInstanceStatus[5] {
+		return nil, fmt.Errorf("allocation is not complete: status %s", instanceInfo.Status)
+	}
 	return instanceInfo, nil
 }
 
@@ -141,35 +153,51 @@ func (o *OneApiClient) RestartApplicationInstance(ctx context.Context, instanceI
 }
 
 func (o *OneApiClient) UpdateApplicationInstance(ctx context.Context, instanceID string, metaData map[string]any) (*runtime.InstanceInfo, error) {
-	appInstances, _, err := o.GetClient().ApplicationInstanceAPI.GetApplicationInstanceApplication(ctx, instanceID).Execute()
+	appInstances, _, err := o.GetClient().ApplicationInstanceAPI.GetApplicationInstance(ctx, instanceID).Execute()
 
 	if err != nil {
 		return nil, err
 	}
+	if len(appInstances) != 1 {
+		return nil, fmt.Errorf("expected one instance, got %d", len(appInstances))
+	}
 	appInstance := appInstances[0]
+	if appInstance.Id != instanceID {
+		return nil, fmt.Errorf("provider returned a different instance")
+	}
 	appInstance.Metadata = createMetaData(metaData).Metadata
 
 	request := o.GetClient().ApplicationInstanceAPI.UpdateApplicationInstance(ctx, instanceID).ApplicationInstance(appInstance)
-	_, _, err = request.Execute()
+	updated, _, err := request.Execute()
 
 	if err != nil {
 		o.logger.WithField("error", err.Error()).Error("failed to update instance")
 		return nil, err
 	}
 
-	return o.mapToInstanceInfo(appInstance)
+	if len(updated) != 1 || updated[0].Id != instanceID {
+		return nil, fmt.Errorf("provider returned an invalid update response")
+	}
+	return o.mapToInstanceInfo(updated[0])
 }
 
 func (o *OneApiClient) mapToInstanceInfo(instance openapi.ApplicationInstance) (*runtime.InstanceInfo, error) {
 
+	if strings.TrimSpace(instance.Id) == "" {
+		return nil, fmt.Errorf("instance ID is missing")
+	}
 	var connectionInfo *runtime.ConnectionInfo
 	for _, ip := range instance.IpAddress {
-		if ip.Private == 0 {
+		address := net.ParseIP(ip.IpAddress)
+		if ip.Private == 0 && address != nil && !address.IsUnspecified() && !address.IsMulticast() {
 			connectionInfo = &runtime.ConnectionInfo{
 				IpAddress: ip.IpAddress,
 			}
 			break
 		}
+	}
+	if connectionInfo == nil {
+		return nil, fmt.Errorf("instance has no usable public IP address")
 	}
 	port, err := parsePort(instance.Properties)
 	if err != nil {
@@ -211,7 +239,10 @@ func parsePort(property []openapi.ApplicationInstanceProperty) (int, error) {
 	if err != nil {
 		return 0, fmt.Errorf("port is not a number")
 	}
-	return int(value), nil
+	if value < 1 || value > 65535 {
+		return 0, fmt.Errorf("port is outside 1-65535")
+	}
+	return value, nil
 }
 
 func getStatus(statusInt int32) string {
@@ -231,8 +262,14 @@ func parseMetadata(metadata []openapi.Metadata) map[string]any {
 
 func createMetaData(metaData map[string]any) openapi.MetadataCollection {
 	parsedMetaData := make([]openapi.Metadata, 0)
-	for key, value := range metaData {
-		if key == ApplicationId || key == I3dFilters {
+	keys := make([]string, 0, len(metaData))
+	for key := range metaData {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	for _, key := range keys {
+		value := metaData[key]
+		if key == ApplicationId || key == I3dFilters || strings.HasPrefix(key, "i3d_") {
 			continue
 		}
 		parsedMetaData = append(parsedMetaData, openapi.Metadata{

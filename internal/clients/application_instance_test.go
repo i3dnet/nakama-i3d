@@ -9,10 +9,10 @@ import (
 	"encoding/json"
 	"github.com/bxcodec/faker/v4"
 	"github.com/heroiclabs/nakama-common/runtime"
-	"github.com/stretchr/testify/suite"
 	"github.com/i3dnet/nakama-i3d/config"
 	openapi "github.com/i3dnet/nakama-i3d/internal/openapi"
 	"github.com/i3dnet/nakama-i3d/internal/tests"
+	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
 	"io"
 	"net/http"
@@ -621,6 +621,7 @@ func applicationInstanceMock(ipAddresses []openapi.ApplicationInstanceIP, proper
 		panic(err)
 	}
 
+	instance.Status = 5
 	instance.IpAddress = ipAddresses
 	instance.Properties = properties
 

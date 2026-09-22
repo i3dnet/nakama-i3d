@@ -126,7 +126,7 @@ func (fm *I3dFleetManager) List(ctx context.Context, query string, limit int, pr
 
 	if query == "" {
 		fb := NewFilterBuilder()
-		query = fb.Add(status, AllocationStatus).Add(applicationId, fm.cfg.ApplicationId).Query()
+		query = fb.Add(applicationId, fm.cfg.ApplicationId).Query()
 
 		result, err := fm.client.ListApplicationInstances(ctx, query, limit, previousCursor)
 		if err != nil {
@@ -134,8 +134,20 @@ func (fm *I3dFleetManager) List(ctx context.Context, query string, limit int, pr
 			return nil, "", err
 		}
 
-		err = fm.storage.UpdateStorageGameSession(ctx, result.Instances)
-		return result.Instances, result.NextCursor, nil
+		// One API does not support filtering status. Keep its page cursor while
+		// selecting allocated entries locally; a page may contain no matches.
+		allocated := make([]*runtime.InstanceInfo, 0, len(result.Instances))
+		for _, instance := range result.Instances {
+			if instance.Status == clients.ApplicationInstanceStatus[5] {
+				allocated = append(allocated, instance)
+			}
+		}
+		if len(allocated) > 0 {
+			if err = fm.storage.UpdateStorageGameSession(ctx, allocated); err != nil {
+				return nil, "", err
+			}
+		}
+		return allocated, result.NextCursor, nil
 	}
 
 	results, err := fm.storage.ListGameSessionsFromStorage(ctx, query, limit, []string{"player_count", "-create_time"}, "")

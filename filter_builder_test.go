@@ -25,7 +25,7 @@ func (suite *FilterBuilderTestSuite) TestAddAndCreateFilter() {
 		Query()
 
 	// assert
-	expected := "fleetId%3Dfleet-123%20and%20regionName%3Deu-west%20and%20dcLocationName%3Dberlin-dc"
+	expected := `fleetId="fleet-123" and regionName="eu-west" and dcLocationName="berlin-dc"`
 	suite.Equal(expected, filter)
 }
 
