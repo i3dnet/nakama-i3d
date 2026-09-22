@@ -55,6 +55,9 @@ func InitModule(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runti
 		return err
 	}
 
+	if err := registerSmokeChecks(initializer); err != nil {
+		return err
+	}
 	logger.Debug("Module loaded in %dms", time.Since(initStart).Milliseconds())
 	return nil
 }
@@ -94,6 +97,10 @@ func MatchmakerMatched(ctx context.Context, logger runtime.Logger, db *sql.DB, n
 		}
 		notificationCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
 		defer cancel()
+		if err := smokeBeforeNotify(notificationCtx, nk, instanceInfo.Id); err != nil {
+			logger.Error("storage-before-callback check: %v", err)
+			return
+		}
 		for _, userId := range userIds {
 			// Use the Nakama Instance to Notify each user that the game session has been created and supply IpAddress
 			sessionId, found := getSessionForUserId(sessionInfo, userId)

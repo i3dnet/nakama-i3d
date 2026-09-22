@@ -9,7 +9,8 @@ COPY *.go ./
 COPY plugin/example/src ./plugin/example/src
 WORKDIR /plugins/plugin/example/src
 RUN go mod download
-RUN go build -mod=readonly --trimpath --buildmode=plugin -o /plugins/i3dplugin.so ./cmd/main
+ARG PLUGIN_BUILD_TAGS=""
+RUN go build -tags="$PLUGIN_BUILD_TAGS" -mod=readonly --trimpath --buildmode=plugin -o /plugins/i3dplugin.so ./cmd/main
 
 FROM heroiclabs/nakama:3.41.0@sha256:ca9f3fe65c90f56860fe5d7cd024868a395cb1a001abb9912bf87ef47d605349
 COPY --from=builder /plugins/i3dplugin.so /nakama/data/modules/

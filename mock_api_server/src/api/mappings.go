@@ -58,6 +58,7 @@ func (gm *GinMapping) create() error {
 	v3.PUT("/:instanceId", gm.applicationInstanceController.Update)
 	v3.POST("/:instanceId/restart", gm.applicationInstanceController.Restart)
 	gm.router.GET("/_test/state", gm.applicationInstanceController.State)
+	gm.router.POST("/_test/allocation", gm.applicationInstanceController.SetAllocationBehavior)
 	gm.router.POST("/_test/instances/:instanceId/status", gm.applicationInstanceController.SetStatus)
 
 	return nil

@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"encoding/json"
+	"github.com/heroiclabs/nakama-common/api"
 	"github.com/heroiclabs/nakama-common/runtime"
 	"testing"
 	"time"
@@ -37,6 +39,10 @@ type testNakama struct {
 	send  func(context.Context, []*runtime.NotificationSend) error
 }
 
+func (n *testNakama) StorageRead(ctx context.Context, reads []*runtime.StorageRead) ([]*api.StorageObject, error) {
+	data, _ := json.Marshal(&runtime.InstanceInfo{Id: "instance", Metadata: map[string]any{"i3d_max_players": 2}})
+	return []*api.StorageObject{{Key: "instance", Value: string(data)}}, nil
+}
 func (n *testNakama) GetFleetManager() runtime.FleetManager { return n.fleet }
 func (n *testNakama) NotificationsSend(ctx context.Context, notifications []*runtime.NotificationSend) error {
 	return n.send(ctx, notifications)
@@ -63,7 +69,7 @@ func TestNotificationSurvivesMatchmakerHookCancellation(t *testing.T) {
 		t.Fatal(err)
 	}
 	cancel()
-	nk.fleet.callback(runtime.CreateSuccess, &runtime.InstanceInfo{ConnectionInfo: &runtime.ConnectionInfo{IpAddress: "127.0.0.1", Port: 7777}}, []*runtime.SessionInfo{{UserId: "player"}}, nil, nil)
+	nk.fleet.callback(runtime.CreateSuccess, &runtime.InstanceInfo{Id: "instance", ConnectionInfo: &runtime.ConnectionInfo{IpAddress: "127.0.0.1", Port: 7777}}, []*runtime.SessionInfo{{UserId: "player"}}, nil, nil)
 	if !sent {
 		t.Error("notification not sent")
 	}

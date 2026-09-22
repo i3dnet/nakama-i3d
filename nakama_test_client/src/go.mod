@@ -9,6 +9,7 @@ require (
 	github.com/rs/zerolog v1.34.0
 	google.golang.org/grpc v1.72.0
 	google.golang.org/protobuf v1.36.6
+	nhooyr.io/websocket v1.8.10
 )
 
 require (
@@ -18,5 +19,4 @@ require (
 	golang.org/x/sys v0.30.0 // indirect
 	golang.org/x/text v0.22.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250218202821-56aae31c358a // indirect
-	nhooyr.io/websocket v1.8.10 // indirect
 )

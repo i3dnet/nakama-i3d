@@ -12,9 +12,12 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 )
 
 type ApplicationInstanceController struct {
+	allocationDelay                       time.Duration
+	responseStatus                        int
 	mu                                    sync.Mutex
 	instances                             map[string]*models.ApplicationInstance
 	allocations, updates, restarts, lists int
@@ -108,7 +111,12 @@ func (gm *ApplicationInstanceController) Create(c *gin.Context) {
 		return
 	}
 	gm.mu.Lock()
-	defer gm.mu.Unlock()
+	locked := true
+	defer func() {
+		if locked {
+			gm.mu.Unlock()
+		}
+	}()
 	for _, instance := range gm.sorted() {
 		match, err := matches(instance, c.Query("filters"))
 		if err != nil {
@@ -119,7 +127,21 @@ func (gm *ApplicationInstanceController) Create(c *gin.Context) {
 			instance.Status = 5
 			instance.Metadata = body.Metadata
 			gm.allocations++
-			c.JSON(200, []*models.ApplicationInstance{instance})
+			response := *instance
+			if gm.responseStatus != 0 {
+				response.Status = gm.responseStatus
+			}
+			delay := gm.allocationDelay
+			gm.allocationDelay = 0
+			gm.responseStatus = 0
+			data, _ := json.Marshal([]*models.ApplicationInstance{&response})
+			gm.mu.Unlock()
+			locked = false
+			// Deliberately finish the provider mutation even if the caller times out.
+			if delay > 0 {
+				time.Sleep(delay)
+			}
+			c.Data(200, "application/json", data)
 			return
 		}
 	}
@@ -245,5 +267,24 @@ func (gm *ApplicationInstanceController) SetStatus(c *gin.Context) {
 		return
 	}
 	instance.Status = *body.Status
+	c.JSON(200, gin.H{"ok": true})
+}
+
+func (gm *ApplicationInstanceController) SetAllocationBehavior(c *gin.Context) {
+	var body struct {
+		DelayMs        int `json:"delay_ms"`
+		ResponseStatus int `json:"response_status"`
+	}
+	if !decode(c, &body) {
+		return
+	}
+	if body.DelayMs < 0 || body.DelayMs > 2000 || (body.ResponseStatus != 0 && body.ResponseStatus != 4 && body.ResponseStatus != 5) {
+		c.JSON(400, gin.H{"error": "invalid test behavior"})
+		return
+	}
+	gm.mu.Lock()
+	defer gm.mu.Unlock()
+	gm.allocationDelay = time.Duration(body.DelayMs) * time.Millisecond
+	gm.responseStatus = body.ResponseStatus
 	c.JSON(200, gin.H{"ok": true})
 }

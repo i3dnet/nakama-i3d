@@ -52,13 +52,13 @@ func TestStorageListingForwardsCursorAndOrder(t *testing.T) {
 	service := &FleetManagerStorageService{logger: tests.NewMockLogger(), nk: storageNakama{index: func(_ context.Context, caller, index, query string, limit int, order []string, cursor string) (*api.StorageObjects, string, error) {
 		require.Empty(t, caller)
 		require.Equal(t, StorageI3dIndex, index)
-		require.Equal(t, "+metadata.mode:arena", query)
+		require.Equal(t, "+value.metadata.mode:arena", query)
 		require.Equal(t, 7, limit)
-		require.Equal(t, []string{"-player_count"}, order)
+		require.Equal(t, []string{"-value.player_count"}, order)
 		require.Equal(t, "previous", cursor)
 		return &api.StorageObjects{Objects: []*api.StorageObject{{Key: "instance", Value: string(data)}}}, "next", nil
 	}}}
-	got, cursor, err := service.ListGameSessionsFromStorage(context.Background(), "+metadata.mode:arena", 7, []string{"-player_count"}, "previous")
+	got, cursor, err := service.ListGameSessionsFromStorage(context.Background(), "+value.metadata.mode:arena", 7, []string{"-value.player_count"}, "previous")
 	require.NoError(t, err)
 	require.Len(t, got, 1)
 	require.Equal(t, "next", cursor)

@@ -11,7 +11,7 @@ cd "$tmp/consumer"
 go mod init example.com/i3d-consumer
 go get "github.com/i3dnet/nakama-i3d@$version"
 # Compile the real consumer example, with no replace directives or private access.
-cp "$root/plugin/example/src/cmd/main/main.go" .
+cp "$root/plugin/example/src/cmd/main/main.go" "$root/plugin/example/src/cmd/main/smoke_disabled.go" .
 go mod tidy
 go list -m github.com/i3dnet/nakama-i3d
 go list github.com/i3dnet/nakama-i3d github.com/i3dnet/nakama-i3d/config
