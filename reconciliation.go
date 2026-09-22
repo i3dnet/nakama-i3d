@@ -99,7 +99,8 @@ func (fm *I3dFleetManager) reconcileSnapshot(ctx context.Context, previous map[s
 		}
 		// Storage pagination is not a transaction-wide snapshot. An allocation
 		// may be written after this pass starts but before its page is read.
-		if !allocatedAt.IsZero() && !allocatedAt.Before(now) {
+		if (!allocatedAt.IsZero() && !allocatedAt.Before(now)) ||
+			(obj.UpdateTime != nil && !obj.UpdateTime.AsTime().Before(now)) {
 			createdDuringScan[obj.Key] = true
 			continue
 		}

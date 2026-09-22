@@ -10,6 +10,7 @@ import (
 	"github.com/i3dnet/nakama-i3d/internal/storage"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -246,4 +247,27 @@ func TestReconciliationExcludesAllocationCreatedDuringStorageScan(t *testing.T) 
 	capacity, err := getMaxPlayers(got)
 	require.NoError(t, err)
 	require.Equal(t, 4, capacity)
+}
+
+type recentlyWrittenSnapshot struct{ storage.FleetManagerStorage }
+
+func (s recentlyWrittenSnapshot) SnapshotGameSessions(ctx context.Context) ([]*api.StorageObject, error) {
+	objects, err := s.FleetManagerStorage.SnapshotGameSessions(ctx)
+	for _, object := range objects {
+		object.UpdateTime = timestamppb.Now()
+	}
+	return objects, err
+}
+func TestReconciliationExcludesRecordUpdatedDuringStorageScan(t *testing.T) {
+	fm, _, client := sessionFixture(t, 0, 4)
+	fm.cfg.ApplicationId = "123"
+	require.NoError(t, fm.storage.CreateGameSession(context.Background(), &runtime.InstanceInfo{Id: "instance", Status: "ALLOCATED", CreateTime: time.Unix(200, 0), Metadata: map[string]any{MaxPlayers: 4, "map": "new-game"}}, "123", nil))
+	// The allocation began earlier, but storage reports an update during this pass.
+	fm.storage = recentlyWrittenSnapshot{fm.storage}
+	client.EXPECT().ListApplicationInstances(gomock.Any(), gomock.Any(), 100, "").Return(&clients.ApplicationInstanceListResponse{Instances: []*runtime.InstanceInfo{{Id: "instance", Status: "ALLOCATED", CreateTime: time.Unix(100, 0), Metadata: map[string]any{"map": "old-game"}}}}, nil)
+	_, err := fm.reconcileOnce(context.Background(), nil, time.Now())
+	require.NoError(t, err)
+	got, err := fm.storage.GetGameSessionFromStorage(context.Background(), "instance")
+	require.NoError(t, err)
+	require.Equal(t, "new-game", got.Metadata["map"])
 }

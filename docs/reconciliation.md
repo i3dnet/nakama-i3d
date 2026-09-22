@@ -14,4 +14,4 @@ Reconciliation only repairs Nakama storage. It never calls the provider restart 
 
 Get also captures the cache version before its provider request; conflicts restart the entire read up to four attempts. Delete captures the version before restarting and never removes a replacement allocation. Nakama 3.41 returns a plain error for conditional-delete conflicts: the adapter confirms a changed/missing version with a new storage read instead of depending on an error string or write-only sentinel.
 
-Storage pagination itself is not a transaction-wide snapshot. Records allocated at or after the pass start time are excluded from refresh and absence cleanup, even if a later storage page includes them. This prevents a stale provider generation from overwriting a new allocation read during the same scan.
+Storage pagination itself is not a transaction-wide snapshot. Records whose allocation time or storage update timestamp is at or after the pass start time are excluded from refresh and absence cleanup, even if a later storage page includes them. This prevents a stale provider generation from overwriting a new allocation read during the same scan.
