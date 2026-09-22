@@ -3,6 +3,8 @@ package storage
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"github.com/heroiclabs/nakama-common/runtime"
 )
 
@@ -11,9 +13,12 @@ const (
 	StorageI3dInstancesCollection = "_i3D_instances"
 )
 
+var ErrSessionNotFound = errors.New("session not found")
+var ErrCorruptSession = errors.New("corrupt stored session")
+
 type FleetManagerStorage interface {
 	GetGameSessionFromStorage(ctx context.Context, id string) (*runtime.InstanceInfo, error)
-	ListGameSessionsFromStorage(ctx context.Context, query string, limit int, order []string, cursor string) ([]*runtime.InstanceInfo, error)
+	ListGameSessionsFromStorage(ctx context.Context, query string, limit int, order []string, cursor string) ([]*runtime.InstanceInfo, string, error)
 	UpdateStorageGameSession(ctx context.Context, instances []*runtime.InstanceInfo) error
 	DeleteStorageGameSession(ctx context.Context, ids []string) error
 }
@@ -48,35 +53,39 @@ func (fms *FleetManagerStorageService) GetGameSessionFromStorage(ctx context.Con
 	}
 
 	if len(objects) == 0 {
-		fms.logger.WithField("objects", objects).WithField("id", id).Error("session not found in storage")
+		return nil, ErrSessionNotFound
 	}
+	return decodeInstance(objects[0].Value, id)
+}
 
-	object := objects[0]
+func decodeInstance(value, id string) (*runtime.InstanceInfo, error) {
 	var instance *runtime.InstanceInfo
-	if err = json.Unmarshal([]byte(object.Value), &instance); err != nil {
-		fms.logger.WithField("error", err.Error()).Error("failed to unmarshal instance")
+	if err := json.Unmarshal([]byte(value), &instance); err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrCorruptSession, err)
 	}
-
+	if instance == nil || instance.Id == "" || instance.Id != id {
+		return nil, fmt.Errorf("%w: invalid instance ID", ErrCorruptSession)
+	}
 	return instance, nil
 }
 
-func (fms *FleetManagerStorageService) ListGameSessionsFromStorage(ctx context.Context, query string, limit int, order []string, cursor string) ([]*runtime.InstanceInfo, error) {
-	entries, _, err := fms.nk.StorageIndexList(ctx, "", StorageI3dIndex, query, limit, []string{"player_count", "-create_time"}, "")
-	if err != nil {
-		fms.logger.WithField("error", err.Error()).Error("failed to list instances from storage")
-		return nil, err
+func (fms *FleetManagerStorageService) ListGameSessionsFromStorage(ctx context.Context, query string, limit int, order []string, cursor string) ([]*runtime.InstanceInfo, string, error) {
+	if limit == 0 {
+		limit = 100
 	}
-
-	results := make([]*runtime.InstanceInfo, 0)
+	entries, nextCursor, err := fms.nk.StorageIndexList(ctx, "", StorageI3dIndex, query, limit, order, cursor)
+	if err != nil {
+		return nil, "", err
+	}
+	results := make([]*runtime.InstanceInfo, 0, len(entries.GetObjects()))
 	for _, entry := range entries.GetObjects() {
-		var info *runtime.InstanceInfo
-		if err = json.Unmarshal([]byte(entry.Value), &info); err != nil {
-			return nil, err
+		info, err := decodeInstance(entry.Value, entry.Key)
+		if err != nil {
+			return nil, "", err
 		}
 		results = append(results, info)
 	}
-
-	return results, nil
+	return results, nextCursor, nil
 }
 
 func (fms *FleetManagerStorageService) UpdateStorageGameSession(ctx context.Context, instances []*runtime.InstanceInfo) error {

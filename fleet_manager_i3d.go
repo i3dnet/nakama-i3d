@@ -150,7 +150,7 @@ func (fm *I3dFleetManager) List(ctx context.Context, query string, limit int, pr
 		return allocated, result.NextCursor, nil
 	}
 
-	results, err := fm.storage.ListGameSessionsFromStorage(ctx, query, limit, []string{"player_count", "-create_time"}, "")
+	results, nextCursor, err := fm.storage.ListGameSessionsFromStorage(ctx, query, limit, []string{"player_count", "-create_time"}, previousCursor)
 	if err != nil {
 		return nil, "", err
 	}

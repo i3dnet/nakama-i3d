@@ -229,13 +229,14 @@ func (suite *FleetManagerSuite) TestList_GivenQuery_ShouldReturnFromStorage() {
 	defer ctrl.Finish()
 
 	client.EXPECT().ListApplicationInstances(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil).Times(0)
-	storageService.EXPECT().ListGameSessionsFromStorage(gomock.Any(), query, gomock.Any(), gomock.Any(), gomock.Any()).Return(expected, nil).Times(1)
+	storageService.EXPECT().ListGameSessionsFromStorage(gomock.Any(), query, gomock.Any(), gomock.Any(), "previous").Return(expected, "next", nil).Times(1)
 
 	// act
-	result, _, err := suite.newTestFleetManager(client, storageService).List(suite.ctx, "test", 0, "")
+	result, cursor, err := suite.newTestFleetManager(client, storageService).List(suite.ctx, "test", 0, "previous")
 
 	// assert
 	suite.NoError(err)
+	suite.Equal("next", cursor)
 	suite.NotNil(result)
 	suite.Equal(len(expected), len(result))
 }
@@ -249,7 +250,7 @@ func (suite *FleetManagerSuite) TestList_GivenAnStorageError_ShouldReturnError()
 	defer ctrl.Finish()
 
 	client.EXPECT().ListApplicationInstances(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil).Times(0)
-	storageService.EXPECT().ListGameSessionsFromStorage(gomock.Any(), query, gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, errors.New("storage error")).Times(1)
+	storageService.EXPECT().ListGameSessionsFromStorage(gomock.Any(), query, gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, "", errors.New("storage error")).Times(1)
 
 	// act
 	result, _, err := suite.newTestFleetManager(client, storageService).List(suite.ctx, query, 0, "")
