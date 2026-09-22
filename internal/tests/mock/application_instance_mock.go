@@ -14,7 +14,7 @@ import (
 	reflect "reflect"
 
 	runtime "github.com/heroiclabs/nakama-common/runtime"
-	clients "gitlab.com/i3Dnet/dev/game/projects/plugins/nakama/fleetmanager/internal/clients"
+	clients "github.com/i3dnet/nakama-i3d/internal/clients"
 	gomock "go.uber.org/mock/gomock"
 )
 

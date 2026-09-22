@@ -1,27 +1,16 @@
 FROM heroiclabs/nakama-pluginbuilder:3.26.0 AS builder
 
-ENV CGO_ENABLED 1
-ENV GO111MODULE on
-ENV GOPRIVATE "github.com/heroiclabs/nakama-project-template"
-
+ENV CGO_ENABLED=1 GO111MODULE=on
 WORKDIR /plugins
-
-COPY . .
-RUN ls -halp
-
-#RUN go get -u github.com/heroiclabs/nakama-common/runtime
-
-WORKDIR /plugins/example/src
-RUN ls -halp
+COPY go.mod go.sum ./
+COPY config ./config
+COPY internal ./internal
+COPY *.go ./
+COPY plugin/example/src ./plugin/example/src
+WORKDIR /plugins/plugin/example/src
 RUN go mod download
-RUN go mod tidy
+RUN go build -mod=readonly --trimpath --buildmode=plugin -o /plugins/i3dplugin.so ./cmd/main
 
-WORKDIR /plugins
-RUN go build -C ./example/src/cmd/main --trimpath --buildmode=plugin  -o /plugins/i3dplugin.so
-RUN ls -halp
 FROM heroiclabs/nakama:3.26.0
-
 COPY --from=builder /plugins/i3dplugin.so /nakama/data/modules/
-COPY example/src/local.development.yml /nakama/data/
-
-
+COPY plugin/example/src/local.development.yml /nakama/data/local.yml

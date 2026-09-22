@@ -2,7 +2,7 @@ package clients
 
 import (
 	"github.com/heroiclabs/nakama-common/runtime"
-	"gitlab.com/i3Dnet/dev/game/projects/plugins/nakama/fleetmanager/config"
+	"github.com/i3dnet/nakama-i3d/config"
 	"time"
 )
 

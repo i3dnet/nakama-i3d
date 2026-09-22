@@ -1,4 +1,4 @@
-module gitlab.com/i3Dnet/dev/game/projects/plugins/nakama/fleetmanager
+module github.com/i3dnet/nakama-i3d
 
 go 1.23.5
 

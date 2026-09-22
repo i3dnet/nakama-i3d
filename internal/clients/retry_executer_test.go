@@ -3,8 +3,8 @@ package clients
 import (
 	"errors"
 	"github.com/stretchr/testify/suite"
-	"gitlab.com/i3Dnet/dev/game/projects/plugins/nakama/fleetmanager/config"
-	"gitlab.com/i3Dnet/dev/game/projects/plugins/nakama/fleetmanager/internal/tests"
+	"github.com/i3dnet/nakama-i3d/config"
+	"github.com/i3dnet/nakama-i3d/internal/tests"
 	"testing"
 	"time"
 )

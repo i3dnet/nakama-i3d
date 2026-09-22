@@ -11,7 +11,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - module: plugin/fleetmanager/src
+          - module: '.'
             go: '1.23.5'
             race: '-race'
           - module: plugin/example/src
