@@ -236,6 +236,7 @@ func (fm *I3dFleetManager) Create(ctx context.Context, maxPlayers int, userIds [
 		sessions []*runtime.SessionInfo
 		err      error
 	}
+	startedAt := time.Now()
 	result := make(chan outcome, 1)
 	go func() {
 		defer fm.operations.Done()
@@ -288,6 +289,7 @@ func (fm *I3dFleetManager) Create(ctx context.Context, maxPlayers int, userIds [
 		case <-operationCtx.Done():
 			completed.err = operationCtx.Err()
 		}
+		fm.recordOperation("allocation", startedAt, completed.err)
 		if callback == nil {
 			if completed.err != nil {
 				fm.logger.Error("allocation failed: %v", completed.err)

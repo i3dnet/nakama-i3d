@@ -26,7 +26,6 @@ import (
 	"log"
 	"mime/multipart"
 	"net/http"
-	"net/http/httputil"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -325,108 +324,63 @@ func parameterToJson(obj interface{}) (string, error) {
 // callAPI do the request.
 func (c *APIClient) callAPI(request *http.Request) (*http.Response, error) {
 	if c.cfg.Debug {
-		dump, err := httputil.DumpRequestOut(request, true)
-		if err != nil {
-			return nil, err
-		}
-		log.Printf("\n%s\n", string(dump))
+		log.Printf("provider request: %s %s", request.Method, telemetryRoute(request))
+	}
+	resp, err := c.executeWithTracing(request.Context(), request)
+	if c.cfg.Debug && resp != nil {
+		log.Printf("provider response: HTTP %d", resp.StatusCode)
 	}
 
-	resp, err := c.executeWithTracing(context.Background(), request) //c.cfg.HTTPClient.Do(request)
-	if err != nil {
-		return resp, err
-	}
-
-	if c.cfg.Debug {
-		dump, err := httputil.DumpResponse(resp, true)
-		if err != nil {
-			return resp, err
-		}
-		log.Printf("\n%s\n", string(dump))
-	}
 	return resp, err
 }
 
+// The generated client already contained custom OpenTelemetry instrumentation.
+// Keep this narrow customization when regenerating: no raw URLs, headers or bodies.
+func telemetryRoute(request *http.Request) string {
+	path := request.URL.Path
+	switch {
+	case path == "/v3/applicationInstance" || path == "/v3/applicationInstance/":
+		return "/v3/applicationInstance"
+	case strings.HasPrefix(path, "/v3/applicationInstance/game/") && strings.HasSuffix(path, "/empty/allocate"):
+		return "/v3/applicationInstance/game/{applicationId}/empty/allocate"
+	case strings.HasPrefix(path, "/v3/applicationInstance/") && strings.HasSuffix(path, "/restart"):
+		return "/v3/applicationInstance/{instanceId}/restart"
+	case strings.HasPrefix(path, "/v3/applicationInstance/") && strings.Count(strings.Trim(path, "/"), "/") == 2:
+		return "/v3/applicationInstance/{instanceId}"
+	default:
+		return "/other"
+	}
+}
 func (c *APIClient) executeWithTracing(ctx context.Context, request *http.Request) (*http.Response, error) {
-	tracer := otel.Tracer("openapi-client")
-	ctx, span := tracer.Start(ctx, request.Method+" "+request.URL.Path)
+	route := telemetryRoute(request)
+	ctx, span := otel.Tracer("openapi-client").Start(ctx, request.Method+" "+route)
 	defer span.End()
-
-	// Set attributes for tracing
-	span.SetAttributes(
-		attribute.String("http.method", request.Method),
-		attribute.String("http.url", request.URL.String()),
-	)
-
-	// Start timer
+	span.SetAttributes(attribute.String("http.method", request.Method), attribute.String("http.route", route))
 	start := time.Now()
-
-	// do request
-	resp, err := c.cfg.HTTPClient.Do(request)
+	response, err := c.cfg.HTTPClient.Do(request.WithContext(ctx))
 	duration := time.Since(start)
+	status := 0
+	if response != nil {
+		status = response.StatusCode
+		span.SetAttributes(attribute.Int("http.status_code", status))
+	}
 	if err != nil {
-		span.RecordError(err)
-		return nil, err
+		span.SetStatus(codes.Error, "provider transport error")
+	} else if status >= 400 {
+		span.SetStatus(codes.Error, fmt.Sprintf("HTTP %d", status))
 	}
-
-	// Capture response status
-	span.SetAttributes(attribute.Int("http.status_code", resp.StatusCode))
-
-	if resp.StatusCode >= 400 {
-		// Read response body for additional logging (clone response body)
-		bodyBytes, _ := io.ReadAll(resp.Body)
-		resp.Body = io.NopCloser(bytes.NewBuffer(bodyBytes)) // Restore body for further reading
-		errMsg := fmt.Sprintf("Error Response: %s", string(bodyBytes))
-		span.RecordError(fmt.Errorf("%s", errMsg))
-		span.SetAttributes(attribute.String("http.response.body", errMsg))
-		span.SetStatus(codes.Error, errMsg)
-
-		// Attach raw response
-		log.Printf("Captured error response: %s", errMsg)
-	}
-
-	webServer := ""
-
-	// adding headers
-	for key, values := range resp.Header {
-		// Use a key prefix to avoid collisions and keep naming consistent.
-		attributeKey := "http.response.header." + strings.ToLower(key)
-		// Set each header as a string slice attribute.
-		span.SetAttributes(attribute.StringSlice(attributeKey, values))
-
-		if strings.ToLower(key) == "x-route" {
-			input := values[0]
-			parts := strings.Split(input, "=>")
-			if len(parts) > 0 {
-				webServer = strings.TrimSpace(parts[0])
-			}
-		}
-	}
-
-	// Record metrics
-	c.recordMetrics(ctx, request.URL.String(), request.Method, resp.StatusCode, webServer, duration)
-
-	return resp, nil
+	c.recordMetrics(ctx, route, request.Method, status, duration)
+	return response, err
 }
 
 var meter = otel.Meter("openapi-client")
 
-func (c *APIClient) recordMetrics(ctx context.Context, url string, method string, status int, webServer string, duration time.Duration) {
-	httpRequestDuration, err := meter.Float64Histogram(
-		"http.client.request.duration",
-		metric.WithUnit("ms"),
-	)
-
+func (c *APIClient) recordMetrics(ctx context.Context, route, method string, status int, duration time.Duration) {
+	histogram, err := meter.Float64Histogram("http.client.request.duration", metric.WithUnit("ms"))
 	if err != nil {
 		return
 	}
-
-	httpRequestDuration.Record(ctx, float64(duration.Milliseconds()), metric.WithAttributes(
-		attribute.String("http.url", url),
-		attribute.String("http.method", method),
-		attribute.String("http.webserver", webServer),
-		attribute.Int("http.status_code", status),
-	))
+	histogram.Record(ctx, float64(duration.Milliseconds()), metric.WithAttributes(attribute.String("http.route", route), attribute.String("http.method", method), attribute.Int("http.status_code", status)))
 }
 
 // Allow modification of underlying config for alternate implementations and testing

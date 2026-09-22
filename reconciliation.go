@@ -45,7 +45,12 @@ func (fm *I3dFleetManager) runReconciliation() {
 		}
 	}
 }
-func (fm *I3dFleetManager) reconcileOnce(ctx context.Context, previous map[string]string, now time.Time) (map[string]string, error) {
+func (fm *I3dFleetManager) reconcileOnce(ctx context.Context, previous map[string]string, now time.Time) (missing map[string]string, err error) {
+	start := time.Now()
+	defer func() { fm.recordOperation("reconciliation", start, err) }()
+	return fm.reconcileSnapshot(ctx, previous, now)
+}
+func (fm *I3dFleetManager) reconcileSnapshot(ctx context.Context, previous map[string]string, now time.Time) (map[string]string, error) {
 	// Captured first: new allocations and concurrent writes cannot be overwritten.
 	snapshot, err := fm.storage.SnapshotGameSessions(ctx)
 	if err != nil {

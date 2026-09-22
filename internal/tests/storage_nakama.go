@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/heroiclabs/nakama-common/api"
 	"github.com/heroiclabs/nakama-common/runtime"
@@ -128,3 +129,6 @@ func (n *MemoryNakama) StorageList(ctx context.Context, callerID, userID, collec
 	}
 	return out, next, nil
 }
+
+func (n *MemoryNakama) MetricsCounterAdd(string, map[string]string, int64)          {}
+func (n *MemoryNakama) MetricsTimerRecord(string, map[string]string, time.Duration) {}
