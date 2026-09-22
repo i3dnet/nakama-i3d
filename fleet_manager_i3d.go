@@ -4,9 +4,9 @@ import (
 	"context"
 	"database/sql"
 	"github.com/heroiclabs/nakama-common/runtime"
-	config "gitlab.com/i3Dnet/dev/game/projects/plugins/nakama/fleetmanager/config"
-	"gitlab.com/i3Dnet/dev/game/projects/plugins/nakama/fleetmanager/internal/clients"
-	"gitlab.com/i3Dnet/dev/game/projects/plugins/nakama/fleetmanager/internal/storage"
+	config "github.com/i3dnet/nakama-i3d/config"
+	"github.com/i3dnet/nakama-i3d/internal/clients"
+	"github.com/i3dnet/nakama-i3d/internal/storage"
 )
 
 type I3dFleetManager struct {

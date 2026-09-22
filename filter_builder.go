@@ -2,7 +2,7 @@ package fleetmanager
 
 import (
 	"fmt"
-	"gitlab.com/i3Dnet/dev/game/projects/plugins/nakama/fleetmanager/internal/clients"
+	"github.com/i3dnet/nakama-i3d/internal/clients"
 	"net/url"
 	"strings"
 )

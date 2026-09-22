@@ -2,8 +2,8 @@ package clients
 
 import (
 	"github.com/heroiclabs/nakama-common/runtime"
-	"gitlab.com/i3Dnet/dev/game/projects/plugins/nakama/fleetmanager/config"
-	openapi "gitlab.com/i3Dnet/dev/game/projects/plugins/nakama/fleetmanager/internal/openapi"
+	"github.com/i3dnet/nakama-i3d/config"
+	openapi "github.com/i3dnet/nakama-i3d/internal/openapi"
 	"net/http"
 )
 

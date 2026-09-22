@@ -4,7 +4,7 @@ go 1.23.5
 
 require (
 	github.com/heroiclabs/nakama-common v1.36.0
-	gitlab.com/i3Dnet/dev/game/projects/plugins/nakama/fleetmanager v0.0.0-00010101000000-000000000000
+	github.com/i3dnet/nakama-i3d v0.0.0-00010101000000-000000000000
 )
 
 require (
@@ -23,4 +23,4 @@ require (
 	olympos.io/encoding/edn v0.0.0-20201019073823-d3554ca0b0a3 // indirect
 )
 
-replace gitlab.com/i3Dnet/dev/game/projects/plugins/nakama/fleetmanager => ../../fleetmanager/src
+replace github.com/i3dnet/nakama-i3d => ../../..

@@ -39,8 +39,8 @@ services:
 
   nakama:
     build:
-      context: ../plugin
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: plugin/Dockerfile
     container_name: template_nk_backend
     depends_on:
       - postgres

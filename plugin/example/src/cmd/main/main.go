@@ -5,8 +5,8 @@ import (
 	"context"
 	"database/sql"
 	"github.com/heroiclabs/nakama-common/runtime"
-	"gitlab.com/i3Dnet/dev/game/projects/plugins/nakama/fleetmanager/config"
-	"gitlab.com/i3Dnet/dev/game/projects/plugins/nakama/fleetmanager/fleetmanager"
+	"github.com/i3dnet/nakama-i3d/config"
+	"github.com/i3dnet/nakama-i3d"
 
 	"time"
 )

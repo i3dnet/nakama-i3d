@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"gitlab.com/i3Dnet/dev/game/projects/plugins/nakama/fleetmanager/config"
+	"github.com/i3dnet/nakama-i3d/config"
 	"io"
 	"net/http"
 	"sync"
