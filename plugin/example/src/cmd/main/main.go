@@ -18,21 +18,16 @@ var localconfig *config.Config
 func InitModule(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runtime.NakamaModule, initializer runtime.Initializer) error {
 	initStart := time.Now()
 
-	//Create the config
+	// Prefer explicit runtime configuration. Only use process/file configuration
+	// when no runtime environment was supplied at all.
 	var runTimeError *runtime.Error
-
-	// getting config from the local.yml inside the runtime environment variables
-	localconfig, runTimeError = config.NewConfigFromRuntime(ctx)
-	if runTimeError != nil {
-
-		// fallback to configuration from .env file
-		// or set as environment variables on the operating system
-		// or as settings.json set in the app directory
+	if ctx.Value(runtime.RUNTIME_CTX_ENV) != nil {
+		localconfig, runTimeError = config.NewConfigFromRuntime(ctx)
+	} else {
 		localconfig, runTimeError = config.NewConfig()
-		if runTimeError != nil {
-			logger.WithField("error", runTimeError).Error("failed to create config")
-			return runTimeError
-		}
+	}
+	if runTimeError != nil {
+		return runTimeError
 	}
 
 	//Create the fleet manager

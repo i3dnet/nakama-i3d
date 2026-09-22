@@ -68,3 +68,28 @@ func TestNotificationSurvivesMatchmakerHookCancellation(t *testing.T) {
 		t.Error("notification not sent")
 	}
 }
+
+func TestInvalidRuntimeConfigurationDoesNotFallBackToProcessCredentials(t *testing.T) {
+	t.Setenv("PROJECT_ROOT", t.TempDir())
+	t.Setenv("I3D_APPLICATION_ID", "process-app")
+	t.Setenv("I3D_ACCESS_TOKEN", "test-only")
+	ctx := context.WithValue(context.Background(), runtime.RUNTIME_CTX_ENV, map[string]string{"I3D_USE_BEARER_AUTH": "invalid"})
+	// Valid process credentials must not cause construction/registration after
+	// explicit runtime input fails validation.
+	err := InitModule(ctx, testLogger{}, nil, nil, nil)
+	runtimeErr, ok := err.(*runtime.Error)
+	if !ok || runtimeErr.Code != 3 {
+		t.Fatalf("expected invalid runtime configuration, got %v", err)
+	}
+}
+
+func TestMalformedRuntimeEnvironmentDoesNotFallBack(t *testing.T) {
+	t.Setenv("PROJECT_ROOT", t.TempDir())
+	t.Setenv("I3D_APPLICATION_ID", "process-app")
+	t.Setenv("I3D_ACCESS_TOKEN", "test-only")
+	ctx := context.WithValue(context.Background(), runtime.RUNTIME_CTX_ENV, "malformed")
+	err := InitModule(ctx, testLogger{}, nil, nil, nil)
+	if runtimeErr, ok := err.(*runtime.Error); !ok || runtimeErr.Code != 3 {
+		t.Fatalf("expected invalid runtime environment, got %v", err)
+	}
+}

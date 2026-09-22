@@ -5,38 +5,42 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/heroiclabs/nakama-common/runtime"
-	"github.com/ilyakaznacheev/cleanenv"
-	"io"
+	"net/url"
 	"os"
 	"path/filepath"
-	runtime2 "runtime"
+	"strconv"
+	"strings"
 	"time"
+
+	"github.com/heroiclabs/nakama-common/runtime"
+	"github.com/joho/godotenv"
 )
 
 type Config struct {
-	AllocationTimeout time.Duration `json:"allocationTimeout" env:"I3D_ALLOCATION_TIMEOUT"`
 	App
-	OneApi `json:"oneApi" env-required:"true"`
-	Retry  `json:"retry" env-required:"true"`
+	OneApi               `json:"oneApi"`
+	Retry                `json:"retry"`
+	AllocationTimeout    time.Duration `json:"allocationTimeout" env:"I3D_ALLOCATION_TIMEOUT"`
+	ProviderTimeout      time.Duration `json:"providerTimeout" env:"I3D_PROVIDER_TIMEOUT"`
+	ReconcileInterval    time.Duration `json:"reconcileInterval" env:"I3D_RECONCILE_INTERVAL"`
+	ReconcileTimeout     time.Duration `json:"reconcileTimeout" env:"I3D_RECONCILE_TIMEOUT"`
+	ReconcileGracePeriod time.Duration `json:"reconcileGracePeriod" env:"I3D_RECONCILE_GRACE_PERIOD"`
 }
-
 type App struct {
 	Name    string
 	Version string
 }
-
 type OneApi struct {
-	ApplicationId     string `json:"applicationId" env-required:"true" env:"I3D_APPLICATION_ID"`
-	BaseUrl           string `json:"baseUrl" env-required:"true" env:"I3D_BASE_URL"`
+	ApplicationId     string `json:"applicationId" env:"I3D_APPLICATION_ID"`
+	FleetId           string `json:"fleetId" env:"I3D_FLEET_ID"`
+	BaseUrl           string `json:"baseUrl" env:"I3D_BASE_URL"`
 	Token             string `json:"token" env:"I3D_ACCESS_TOKEN"`
 	UseBearerAuth     bool   `json:"useBearerAuth" env:"I3D_USE_BEARER_AUTH"`
-	ClientId          string `json:"clientId"  env:"I3D_CLIENT_ID"`
-	ClientSecret      string `json:"clientSecret"  env:"I3D_CLIENT_SECRET"`
-	Audience          string `json:"audience"  env:"I3D_AUDIENCE"`
-	AuthenticationUrl string `json:"authenticationUrl"  env:"I3D_AUTHENTICATION_URL"`
+	ClientId          string `json:"clientId" env:"I3D_CLIENT_ID"`
+	ClientSecret      string `json:"clientSecret" env:"I3D_CLIENT_SECRET"`
+	Audience          string `json:"audience" env:"I3D_AUDIENCE"`
+	AuthenticationUrl string `json:"authenticationUrl" env:"I3D_AUTHENTICATION_URL"`
 }
-
 type Retry struct {
 	Attempts int           `json:"attempts" env:"I3D_RETRY_ATTEMPTS"`
 	Delay    time.Duration `json:"delay" env:"I3D_RETRY_DELAY"`
@@ -56,222 +60,159 @@ const (
 
 func defaultConfig() *Config {
 	return &Config{
-		AllocationTimeout: 120 * time.Second,
-		App: App{
-			Name:    "Nakama one plugin",
-			Version: "1.0.0",
-		},
-		OneApi: OneApi{
-			BaseUrl:       "https://api.i3d.net",
-			UseBearerAuth: false,
-		},
-		Retry: Retry{
-			Attempts: 3,
-			Delay:    1500 * time.Millisecond,
-			MaxDelay: 7500 * time.Millisecond,
-		},
+		App:               App{Name: "Nakama one plugin", Version: "1.0.0"},
+		OneApi:            OneApi{BaseUrl: "https://api.i3d.net"},
+		Retry:             Retry{Attempts: 3, Delay: 1500 * time.Millisecond, MaxDelay: 7500 * time.Millisecond},
+		AllocationTimeout: 120 * time.Second, ProviderTimeout: 90 * time.Second,
+		ReconcileInterval: time.Minute, ReconcileTimeout: 30 * time.Second, ReconcileGracePeriod: 2 * time.Minute,
 	}
 }
+func configError(err error) *runtime.Error { return runtime.NewError("configuration: "+err.Error(), 3) }
 
+// NewConfigFromRuntime uses only Nakama's runtime environment. Invalid runtime
+// input must not silently select unrelated process/file credentials.
 func NewConfigFromRuntime(ctx context.Context) (*Config, *runtime.Error) {
-	cfg := defaultConfig()
-	envValue := ctx.Value(runtime.RUNTIME_CTX_ENV)
-	env, ok := envValue.(map[string]string)
+	env, ok := ctx.Value(runtime.RUNTIME_CTX_ENV).(map[string]string)
 	if !ok {
-		return nil, runtime.NewError(fmt.Sprintf("unable to cast '%v' to a map", runtime.RUNTIME_CTX_ENV), 3)
+		return nil, configError(fmt.Errorf("runtime environment is unavailable"))
 	}
-
-	applicationId, exists := env[ENV_APPLICATION_ID]
-	if !exists {
-		return nil, runtime.NewError(fmt.Sprintf("unable to find '%v'", ENV_APPLICATION_ID), 3)
-	}
-
-	cfg.OneApi.ApplicationId = applicationId
-
-	baseUrl, exists := env[ENV_BASE_URL]
-	if exists {
-		cfg.OneApi.BaseUrl = baseUrl
-	}
-
-	useBearerAuth, exists := env[ENV_BEARER_AUTH]
-	if !exists {
-		useBearerAuth = "false"
-		cfg.OneApi.UseBearerAuth = false
-	}
-
-	if useBearerAuth == "true" {
-		cfg.OneApi.UseBearerAuth = true
-		clientId, exists := env[ENV_CLIENT_ID]
-		if !exists {
-			return nil, runtime.NewError(fmt.Sprintf("unable to find '%v'", ENV_CLIENT_ID), 3)
-		}
-		cfg.OneApi.ClientId = clientId
-
-		clientSecret, exists := env[ENV_CLIENT_SECRET]
-		if !exists {
-			return nil, runtime.NewError(fmt.Sprintf("unable to find '%v'", ENV_CLIENT_SECRET), 3)
-		}
-		cfg.OneApi.ClientSecret = clientSecret
-
-		audience, exists := env[ENV_AUDIENCE]
-		if !exists {
-			return nil, runtime.NewError(fmt.Sprintf("unable to find '%v'", ENV_AUDIENCE), 3)
-		}
-		cfg.OneApi.Audience = audience
-
-		authenticationUrl, exists := env[ENV_AUTHENTICATION_URL]
-		if !exists {
-			return nil, runtime.NewError(fmt.Sprintf("unable to find '%v'", ENV_AUTHENTICATION_URL), 3)
-		}
-
-		cfg.OneApi.AuthenticationUrl = authenticationUrl
-	} else {
-		token, exists := env[ENV_ACCESS_TOKEN]
-		if !exists {
-			return nil, runtime.NewError(fmt.Sprintf("unable to find '%v'", ENV_ACCESS_TOKEN), 3)
-		}
-
-		cfg.OneApi.Token = token
-
-	}
-
-	if err := validate(cfg); err != nil {
-		return nil, runtime.NewError(fmt.Sprintf("config validation error: %v", err), 3)
-	}
-
-	return cfg, nil
-}
-
-func NewConfig() (*Config, *runtime.Error) {
 	cfg := defaultConfig()
-	cwd := projectRoot()
-	envFilePath := cwd + ".env"
-
-	err := readEnv(envFilePath, cfg)
-
-	if err != nil {
-		fmt.Println("Environment variables not found, trying to read config from json")
-		err = readJson(envFilePath+"setting.json", cfg)
-
-		if err != nil {
-			return nil, runtime.NewError(fmt.Sprintf("Environment variables were not found: %v", err), 3)
-		}
+	if err := applyEnv(cfg, env); err != nil {
+		return nil, configError(err)
 	}
-
 	if err := validate(cfg); err != nil {
-		fmt.Println("Config validation error: ", err)
-		return nil, runtime.NewError(fmt.Sprintf("config validation error: %v", err), 3)
+		return nil, configError(err)
 	}
-
 	return cfg, nil
 }
 
-func validate(cfg *Config) error {
-	errs := make([]error, 0)
-	if cfg.OneApi.ApplicationId == "" {
-		errs = append(errs, fmt.Errorf("missing application id"))
-	}
-	if cfg.OneApi.BaseUrl == "" {
-		errs = append(errs, fmt.Errorf("missing base url"))
-	}
-	if cfg.OneApi.UseBearerAuth {
-		if cfg.OneApi.ClientId == "" {
-			errs = append(errs, fmt.Errorf("missing client id"))
-		}
-		if cfg.OneApi.ClientSecret == "" {
-			errs = append(errs, fmt.Errorf("missing client secret"))
-		}
-
-		if cfg.OneApi.Audience == "" {
-			errs = append(errs, fmt.Errorf("missing audience"))
-		}
-
-		if cfg.OneApi.AuthenticationUrl == "" {
-			errs = append(errs, fmt.Errorf("missing authentication url"))
-		}
-
-	} else {
-		if cfg.OneApi.Token == "" {
-			errs = append(errs, fmt.Errorf("missing token"))
+// NewConfig reads defaults, optional setting.json, optional .env, then process
+// environment overrides. Paths are relative to PROJECT_ROOT or the working directory.
+func NewConfig() (*Config, *runtime.Error) {
+	root := os.Getenv("PROJECT_ROOT")
+	if root == "" {
+		var err error
+		root, err = os.Getwd()
+		if err != nil {
+			return nil, configError(err)
 		}
 	}
-
-	if len(errs) > 0 {
-		return errors.Join(errs...)
+	cfg := defaultConfig()
+	data, err := os.ReadFile(filepath.Join(root, "setting.json"))
+	if err == nil {
+		if err = json.Unmarshal(data, cfg); err != nil {
+			return nil, configError(fmt.Errorf("invalid setting.json: %w", err))
+		}
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return nil, configError(err)
 	}
-
-	return nil
+	env := map[string]string{}
+	envFile := filepath.Join(root, ".env")
+	if _, err = os.Stat(envFile); err == nil {
+		env, err = godotenv.Read(envFile)
+		if err != nil {
+			return nil, configError(fmt.Errorf("invalid .env file"))
+		}
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return nil, configError(err)
+	}
+	for _, entry := range os.Environ() {
+		key, value, _ := strings.Cut(entry, "=")
+		if strings.HasPrefix(key, "I3D_") {
+			env[key] = value
+		}
+	}
+	if err = applyEnv(cfg, env); err != nil {
+		return nil, configError(err)
+	}
+	if err = validate(cfg); err != nil {
+		return nil, configError(err)
+	}
+	return cfg, nil
 }
-
-func readEnv(envFilePath string, cfg *Config) error {
-	envFileExists := checkFileExists(envFilePath)
-
-	if envFileExists {
-		err := cleanenv.ReadConfig(envFilePath, cfg)
-		if err != nil {
-			return fmt.Errorf("config error: %w", err)
+func applyEnv(cfg *Config, env map[string]string) error {
+	if _, canonical := env[ENV_BASE_URL]; !canonical {
+		if alias, ok := env["I3D_API_URL"]; ok {
+			cfg.BaseUrl = alias
 		}
-	} else {
-		err := cleanenv.ReadEnv(cfg)
+	}
+	for key, target := range map[string]*string{
+		ENV_APPLICATION_ID: &cfg.ApplicationId, "I3D_FLEET_ID": &cfg.FleetId, ENV_BASE_URL: &cfg.BaseUrl,
+		ENV_ACCESS_TOKEN: &cfg.Token, ENV_CLIENT_ID: &cfg.ClientId, ENV_CLIENT_SECRET: &cfg.ClientSecret,
+		ENV_AUDIENCE: &cfg.Audience, ENV_AUTHENTICATION_URL: &cfg.AuthenticationUrl,
+	} {
+		if value, ok := env[key]; ok {
+			*target = value
+		}
+	}
+	if value, ok := env[ENV_BEARER_AUTH]; ok {
+		parsed, err := strconv.ParseBool(value)
 		if err != nil {
-
-			if _, statErr := os.Stat(envFilePath + ".example"); statErr == nil {
-				return fmt.Errorf("missing environmentvariables: %w\n\nprovide all required environment variables or rename and update .env.example to .env for convinience", err)
+			return fmt.Errorf("%s must be a boolean", ENV_BEARER_AUTH)
+		}
+		cfg.UseBearerAuth = parsed
+	}
+	if value, ok := env["I3D_RETRY_ATTEMPTS"]; ok {
+		parsed, err := strconv.Atoi(value)
+		if err != nil {
+			return fmt.Errorf("I3D_RETRY_ATTEMPTS must be an integer")
+		}
+		cfg.Attempts = parsed
+	}
+	for key, target := range map[string]*time.Duration{
+		"I3D_RETRY_DELAY": &cfg.Delay, "I3D_RETRY_MAX_DELAY": &cfg.MaxDelay,
+		"I3D_ALLOCATION_TIMEOUT": &cfg.AllocationTimeout, "I3D_PROVIDER_TIMEOUT": &cfg.ProviderTimeout,
+		"I3D_RECONCILE_INTERVAL": &cfg.ReconcileInterval, "I3D_RECONCILE_TIMEOUT": &cfg.ReconcileTimeout,
+		"I3D_RECONCILE_GRACE_PERIOD": &cfg.ReconcileGracePeriod,
+	} {
+		if value, ok := env[key]; ok {
+			duration, err := time.ParseDuration(value)
+			if err != nil {
+				return fmt.Errorf("%s must be a Go duration", key)
 			}
-
-			return err
+			*target = duration
 		}
 	}
+	cfg.BaseUrl = strings.TrimRight(cfg.BaseUrl, "/")
 	return nil
 }
-
-func readJson(jsonFilePath string, cfg *Config) error {
-
-	// check if file exists
-	if _, err := os.Stat(jsonFilePath); err != nil {
-		return fmt.Errorf("config error: %w", err)
+func validate(cfg *Config) error {
+	var problems []error
+	required := map[string]string{ENV_APPLICATION_ID: cfg.ApplicationId}
+	if cfg.UseBearerAuth {
+		required[ENV_CLIENT_ID] = cfg.ClientId
+		required[ENV_CLIENT_SECRET] = cfg.ClientSecret
+		required[ENV_AUDIENCE] = cfg.Audience
+		required[ENV_AUTHENTICATION_URL] = cfg.AuthenticationUrl
+	} else {
+		required[ENV_ACCESS_TOKEN] = cfg.Token
 	}
-
-	file, err := os.Open(jsonFilePath)
-	if err != nil {
-		return fmt.Errorf("config error: %w", err)
+	for key, value := range required {
+		if strings.TrimSpace(value) == "" {
+			problems = append(problems, fmt.Errorf("%s is required", key))
+		}
 	}
-
-	defer file.Close()
-
-	bytes, err := io.ReadAll(file)
-	if err != nil {
-		return err
+	validateURL := func(key, value string) {
+		parsed, err := url.Parse(value)
+		if err != nil || parsed.Host == "" || (parsed.Scheme != "https" && parsed.Scheme != "http") || parsed.User != nil {
+			problems = append(problems, fmt.Errorf("%s must be an HTTP(S) URL without embedded credentials", key))
+		}
 	}
-
-	err = json.Unmarshal(bytes, &cfg)
-	if err != nil {
-		return fmt.Errorf("config error: %w", err)
+	validateURL(ENV_BASE_URL, cfg.BaseUrl)
+	if cfg.UseBearerAuth {
+		validateURL(ENV_AUTHENTICATION_URL, cfg.AuthenticationUrl)
 	}
-
-	return nil
-}
-
-func checkFileExists(fileName string) bool {
-	envFileExists := false
-	if _, err := os.Stat(fileName); err == nil {
-		envFileExists = true
+	if cfg.Attempts < 1 || cfg.Attempts > 10 {
+		problems = append(problems, fmt.Errorf("I3D_RETRY_ATTEMPTS must be between 1 and 10"))
 	}
-	return envFileExists
-}
-
-func projectRoot() string {
-
-	projectRoot := os.Getenv("PROJECT_ROOT")
-	if projectRoot != "" {
-		fmt.Println("projectRoot: ", projectRoot)
-		return projectRoot + "/"
+	if cfg.Delay < 0 || cfg.MaxDelay < cfg.Delay {
+		problems = append(problems, fmt.Errorf("retry delays must be nonnegative and max delay must be at least the initial delay"))
 	}
-
-	_, b, _, _ := runtime2.Caller(0)
-	projectRoot = filepath.Dir(b)
-
-	fmt.Println("projectRoot: ", projectRoot)
-
-	return projectRoot + "/../"
+	if cfg.AllocationTimeout <= 0 || cfg.ProviderTimeout <= 0 {
+		problems = append(problems, fmt.Errorf("allocation and provider timeouts must be positive"))
+	}
+	if cfg.ReconcileInterval < 0 || cfg.ReconcileTimeout <= 0 || cfg.ReconcileGracePeriod < 0 {
+		problems = append(problems, fmt.Errorf("reconciliation interval/grace must be nonnegative and timeout must be positive"))
+	}
+	return errors.Join(problems...)
 }
