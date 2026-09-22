@@ -7,3 +7,5 @@ cleanup() { compose down --volumes --remove-orphans; }
 trap cleanup EXIT
 compose up --build --wait --wait-timeout 180 nakama
 compose logs --no-color nakama
+address="$(compose port nakama 7350)"
+python3 "$root/scripts/check-rpc-auth.py" "http://$address"

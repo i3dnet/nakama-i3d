@@ -3,7 +3,9 @@ package fleetmanager
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"reflect"
+	"strings"
 )
 
 // UpdateInstanceInfoRequest is the data transfer object for the UpdateInstanceInfo RPC
@@ -19,8 +21,13 @@ type DeleteInstanceInfoRequest struct {
 
 func FromPayloadToRequest[T any](payload string) (*T, error) {
 
+	if strings.TrimSpace(payload) == "null" {
+		return nil, fmt.Errorf("request must be an object")
+	}
 	result := new(T)
-	if err := json.Unmarshal([]byte(payload), result); err != nil {
+	decoder := json.NewDecoder(strings.NewReader(payload))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(result); err != nil {
 		typeName := reflect.TypeOf(result).Elem().Name()
 		if typeName == "" {
 			typeName = reflect.TypeOf(result).Name()
@@ -29,5 +36,8 @@ func FromPayloadToRequest[T any](payload string) (*T, error) {
 		return nil, fmt.Errorf("failed to unmarshal %s request: %w", typeName, err)
 	}
 
+	if err := decoder.Decode(new(any)); err != io.EOF {
+		return nil, fmt.Errorf("request must contain exactly one JSON object")
+	}
 	return result, nil
 }

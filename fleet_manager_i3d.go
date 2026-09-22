@@ -9,6 +9,7 @@ import (
 	config "github.com/i3dnet/nakama-i3d/config"
 	"github.com/i3dnet/nakama-i3d/internal/clients"
 	"github.com/i3dnet/nakama-i3d/internal/storage"
+	"strings"
 	"sync"
 	"time"
 )
@@ -303,16 +304,29 @@ func (fm *I3dFleetManager) Join(ctx context.Context, id string, userIds []string
 
 // UpdateInstanceInfo updates the instance in the Fleet Manager API
 func (fm *I3dFleetManager) UpdateInstanceInfo(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runtime.NakamaModule, payload string) (string, error) {
+	if ctx.Value(runtime.RUNTIME_CTX_USER_ID) != nil {
+		return "", runtime.NewError("server authentication required", PERMISSION_DENIED)
+	}
 
 	fm.logger.WithField("method_name", "UpdateInstanceInfo").Debug("FleetManager - Entered UpdateInstanceInfo Method")
-
-	fm.logger.WithField("payload", payload).Debug("received update from headless instance")
 
 	request, err := FromPayloadToRequest[UpdateInstanceInfoRequest](payload)
 
 	if err != nil {
 		logger.WithField("error", err.Error()).Error("failed to unmarshal updateInstanceInfo request")
-		return "", ErrInternalError
+		return "", ErrInvalidInput
+	}
+
+	if strings.TrimSpace(request.Id) == "" {
+		return "", ErrInvalidInput
+	}
+	if request.PlayerCount < 0 {
+		return "", ErrInvalidInput
+	}
+	for key := range request.Metadata {
+		if strings.HasPrefix(key, "i3d_") || key == clients.I3dFilters || key == clients.ApplicationId {
+			return "", ErrInvalidInput
+		}
 	}
 
 	if err := fm.Update(ctx, request.Id, request.PlayerCount, request.Metadata); err != nil {
@@ -325,13 +339,20 @@ func (fm *I3dFleetManager) UpdateInstanceInfo(ctx context.Context, logger runtim
 
 // DeleteInstanceInfo deletes the instance in the Fleet Manager API
 func (fm *I3dFleetManager) DeleteInstanceInfo(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runtime.NakamaModule, payload string) (string, error) {
+	if ctx.Value(runtime.RUNTIME_CTX_USER_ID) != nil {
+		return "", runtime.NewError("server authentication required", PERMISSION_DENIED)
+	}
 
 	fm.logger.WithField("method_name", "DeleteInstanceInfo").Debug("FleetManager - Entered DeleteInstanceInfo Method")
 
 	request, err := FromPayloadToRequest[DeleteInstanceInfoRequest](payload)
 	if err != nil {
 		logger.WithField("error", err.Error()).Error("failed to unmarshal deleteInstanceInfo request")
-		return "", ErrInternalError
+		return "", ErrInvalidInput
+	}
+
+	if strings.TrimSpace(request.Id) == "" {
+		return "", ErrInvalidInput
 	}
 
 	fm.logger.WithField("instance_id", request.Id).Debug("received delete from headless instance")
