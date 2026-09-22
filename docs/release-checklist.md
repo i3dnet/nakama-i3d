@@ -21,7 +21,7 @@ Merge in order after review; each PR is based on the preceding branch. Do not re
 | [#18](https://github.com/i3dnet/nakama-i3d/pull/18) | Fleet metrics and redacted HTTP telemetry |
 | [#19](https://github.com/i3dnet/nakama-i3d/pull/19) | Stateful provider mock and request validation |
 | [#20](https://github.com/i3dnet/nakama-i3d/pull/20) | Real two-client lifecycle/native storage smoke |
-| Documentation PR | This guide, compiled snippets and release evidence |
+| [#23](https://github.com/i3dnet/nakama-i3d/pull/23) | This guide, compiled snippets and release evidence |
 
 ## Completed candidate evidence
 
