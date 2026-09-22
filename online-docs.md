@@ -368,6 +368,8 @@ Use actual i3D IDs, not an AWS-style region name in an ID field. The builder als
 
 Supported filter keys include deployment environment, fleet, host, application build, data-center location, and region. Use the corresponding exported constants, such as `ApplicationBuildId`, `DcLocationId`, or `RegionName`.
 
+Metadata must be JSON-encodable. Accepted metadata retains exact Go scalar types and independent nested maps/slices for asynchronous allocation and callbacks. Structs containing mutable unexported state are rejected before allocation because the adapter cannot safely copy that state.
+
 Allocation filters are separate from the metadata delivered to the game server. The adapter extracts its routing fields before sending game metadata. Reserve `i3dFilters`, `overwriteApplicationId` and the entire `i3d_` namespace for adapter use. `FilterBuilder.Query` returns a raw expression; do not URL-encode it yourself.
 
 The `latencies` argument to `Create` is not used for automatic placement by this adapter. Choose an appropriate region or fleet in your matchmaking logic and pass the filter.

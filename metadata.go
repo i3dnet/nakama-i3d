@@ -2,6 +2,7 @@ package fleetmanager
 
 import (
 	"encoding/json"
+	"fmt"
 	"reflect"
 )
 
@@ -9,6 +10,9 @@ import (
 // callback delivery while detaching mutable JSON-visible data from the caller.
 func cloneMetadata(metadata map[string]any) (map[string]any, error) {
 	if _, err := json.Marshal(metadata); err != nil {
+		return nil, err
+	}
+	if err := validateMetadataCopy(reflect.ValueOf(metadata), make(map[metadataReference]bool)); err != nil {
 		return nil, err
 	}
 	return copyMetadataValue(reflect.ValueOf(metadata), make(map[metadataReference]reflect.Value)).Interface().(map[string]any), nil
@@ -47,14 +51,14 @@ func copyMetadataValue(value reflect.Value, seen map[metadataReference]reflect.V
 		case reflect.Slice:
 			copied = reflect.MakeSlice(value.Type(), value.Len(), value.Len())
 		case reflect.Pointer:
-			copied = reflect.New(value.Type().Elem())
+			copied = reflect.New(value.Type().Elem()).Convert(value.Type())
 		}
 		seen[key] = copied
 		switch value.Kind() {
 		case reflect.Map:
 			entries := value.MapRange()
 			for entries.Next() {
-				copied.SetMapIndex(entries.Key(), copyMetadataValue(entries.Value(), seen))
+				copied.SetMapIndex(copyMetadataValue(entries.Key(), seen), copyMetadataValue(entries.Value(), seen))
 			}
 		case reflect.Slice:
 			for i := 0; i < value.Len(); i++ {
@@ -82,4 +86,72 @@ func copyMetadataValue(value reflect.Value, seen map[metadataReference]reflect.V
 	default:
 		return value
 	}
+}
+
+func validateMetadataCopy(value reflect.Value, seen map[metadataReference]bool) error {
+	switch value.Kind() {
+	case reflect.Map, reflect.Slice, reflect.Pointer:
+		if value.IsNil() {
+			return nil
+		}
+		key := metadataReference{typ: value.Type(), pointer: uintptr(value.UnsafePointer())}
+		if value.Kind() == reflect.Slice {
+			key.length = value.Len()
+		}
+		if seen[key] {
+			return nil
+		}
+		seen[key] = true
+	}
+	switch value.Kind() {
+	case reflect.Interface, reflect.Pointer:
+		if !value.IsNil() {
+			return validateMetadataCopy(value.Elem(), seen)
+		}
+	case reflect.Map:
+		entries := value.MapRange()
+		for entries.Next() {
+			if err := validateMetadataCopy(entries.Key(), seen); err != nil {
+				return err
+			}
+			if err := validateMetadataCopy(entries.Value(), seen); err != nil {
+				return err
+			}
+		}
+	case reflect.Slice, reflect.Array:
+		for i := 0; i < value.Len(); i++ {
+			if err := validateMetadataCopy(value.Index(i), seen); err != nil {
+				return err
+			}
+		}
+	case reflect.Struct:
+		for i := 0; i < value.NumField(); i++ {
+			field := value.Type().Field(i)
+			if field.PkgPath != "" {
+				if metadataTypeHasReferences(field.Type) {
+					return fmt.Errorf("metadata type %s has mutable unexported state", value.Type())
+				}
+				continue
+			}
+			if err := validateMetadataCopy(value.Field(i), seen); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+func metadataTypeHasReferences(typ reflect.Type) bool {
+	switch typ.Kind() {
+	case reflect.Map, reflect.Slice, reflect.Pointer, reflect.Interface, reflect.Chan, reflect.Func, reflect.UnsafePointer:
+		return true
+	case reflect.Array:
+		return metadataTypeHasReferences(typ.Elem())
+	case reflect.Struct:
+		for i := 0; i < typ.NumField(); i++ {
+			if metadataTypeHasReferences(typ.Field(i).Type) {
+				return true
+			}
+		}
+	}
+	return false
 }
