@@ -5,7 +5,7 @@ version="${1:?Usage: scripts/check-install.sh <published-commit-or-tag>}"
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 tmp="$(mktemp -d)"
 trap 'chmod -R u+w "$tmp"; rm -rf "$tmp"' EXIT
-export GOWORK=off GOMODCACHE="$tmp/modcache" GOPRIVATE= GONOPROXY= GONOSUMDB=
+export GOWORK=off GOMODCACHE="$tmp/modcache" GOPRIVATE= GONOPROXY= GONOSUMDB= GOPROXY=https://proxy.golang.org GOSUMDB=sum.golang.org
 mkdir "$tmp/consumer"
 cd "$tmp/consumer"
 go mod init example.com/i3d-consumer
