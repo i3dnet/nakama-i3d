@@ -473,11 +473,27 @@ func (fm *I3dFleetManager) Delete(ctx context.Context, id string) error {
 		return err
 	}
 
-	err = fm.storage.ReconcileGameSession(ctx, snapshot, nil, "", "")
-	if err != nil {
-		fm.logger.WithField("error", err.Error()).Error("failed to delete storage")
-		return err
+	for attempt := 0; attempt < 5; attempt++ {
+		err = fm.storage.ReconcileGameSession(ctx, snapshot, nil, "", "")
+		if !errors.Is(err, runtime.ErrStorageRejectedVersion) {
+			return err
+		}
+		current, readErr := fm.storage.GetGameSessionSnapshot(ctx, id)
+		if readErr != nil {
+			return readErr
+		}
+		if current == nil {
+			return nil
+		}
+		same, compareErr := storage.SameAllocation(snapshot, current)
+		if compareErr != nil {
+			return compareErr
+		}
+		if !same {
+			// Do not delete a new allocation or a legacy record without identity.
+			return err
+		}
+		snapshot = current
 	}
-
-	return nil
+	return runtime.ErrStorageWriteExhaustedRetries
 }

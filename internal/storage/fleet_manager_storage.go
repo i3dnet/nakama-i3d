@@ -234,21 +234,64 @@ func (fms *FleetManagerStorageService) CreateGameSession(ctx context.Context, in
 }
 
 func (fms *FleetManagerStorageService) UpdateStorageGameSession(ctx context.Context, instances []*runtime.InstanceInfo) error {
+	if len(instances) == 0 {
+		return nil
+	}
+	reads := make([]*runtime.StorageRead, 0, len(instances))
+	ids := make(map[string]bool, len(instances))
 	for _, incoming := range instances {
-		if incoming == nil {
-			return fmt.Errorf("instance is nil")
+		if incoming == nil || incoming.Id == "" || ids[incoming.Id] {
+			return fmt.Errorf("provider page has a missing or duplicate instance ID")
 		}
-		committed, err := fms.mutate(ctx, incoming.Id, true, func(record *sessionRecord) error {
+		ids[incoming.Id] = true
+		reads = append(reads, &runtime.StorageRead{Collection: StorageI3dInstancesCollection, Key: incoming.Id})
+	}
+	var committed []*runtime.InstanceInfo
+	_, err := fms.nk.StorageWriteRetry(ctx, reads, func(objects []*api.StorageObject) ([]*runtime.StorageWrite, error) {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+		byID := make(map[string]*api.StorageObject, len(objects))
+		for _, object := range objects {
+			byID[object.Key] = object
+		}
+		writes := make([]*runtime.StorageWrite, 0, len(instances))
+		committed = make([]*runtime.InstanceInfo, 0, len(instances))
+		for _, incoming := range instances {
+			version := "*"
+			record := &sessionRecord{InstanceInfo: &runtime.InstanceInfo{Id: incoming.Id}, Local: localState{JoinedUsers: map[string]bool{}}}
+			if object := byID[incoming.Id]; object != nil {
+				var err error
+				record, err = decodeRecord(object.Value, incoming.Id)
+				if err != nil {
+					return nil, err
+				}
+				if object.Version == "" {
+					return nil, fmt.Errorf("%w: missing storage version", ErrCorruptSession)
+				}
+				version = object.Version
+			}
 			if !record.CreateTime.IsZero() && !incoming.CreateTime.IsZero() && !record.CreateTime.Equal(incoming.CreateTime) {
 				record.Local = localState{JoinedUsers: map[string]bool{}}
 			}
-			return MergeProviderInstance(record.InstanceInfo, incoming)
-		})
-		if err != nil {
-			return err
+			if err := MergeProviderInstance(record.InstanceInfo, incoming); err != nil {
+				return nil, err
+			}
+			value, err := json.Marshal(record)
+			if err != nil {
+				return nil, err
+			}
+			writes = append(writes, &runtime.StorageWrite{Collection: StorageI3dInstancesCollection, Key: incoming.Id, Value: string(value), Version: version, PermissionRead: 0, PermissionWrite: 0})
+			committed = append(committed, record.InstanceInfo)
 		}
-		// Return the merged view to Get/List callers as well as persisting it.
-		*incoming = *committed
+		return writes, nil
+	}, 5)
+	if err != nil {
+		return err
+	}
+	// Publish the merged page only after the complete transaction succeeds.
+	for i, incoming := range instances {
+		*incoming = *committed[i]
 	}
 	return nil
 }

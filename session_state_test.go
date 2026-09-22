@@ -198,3 +198,48 @@ func TestRefreshCannotOverwriteConcurrentJoin(t *testing.T) {
 	require.Equal(t, 1, stored.PlayerCount)
 	require.Equal(t, "new", stored.Metadata["map"])
 }
+
+func TestProviderPageRefreshIsAtomicOnCorruptLaterRecord(t *testing.T) {
+	fm, nk, _ := sessionFixture(t, 1, 3)
+	_, err := nk.StorageWrite(context.Background(), []*runtime.StorageWrite{{Collection: storage.StorageI3dInstancesCollection, Key: "broken", Value: "{"}})
+	require.NoError(t, err)
+	original, err := fm.storage.GetGameSessionSnapshot(context.Background(), "instance")
+	require.NoError(t, err)
+	incoming := []*runtime.InstanceInfo{{Id: "instance", Status: "ALLOCATED", Metadata: map[string]any{"map": "new"}}, {Id: "broken", Status: "ALLOCATED"}}
+	err = fm.storage.UpdateStorageGameSession(context.Background(), incoming)
+	require.ErrorIs(t, err, storage.ErrCorruptSession)
+	current, err := fm.storage.GetGameSessionSnapshot(context.Background(), "instance")
+	require.NoError(t, err)
+	require.Equal(t, original, current, "a failed page must not change an earlier record")
+	require.NotContains(t, incoming[0].Metadata, MaxPlayers, "failed refresh must not mutate caller results")
+}
+func TestProviderPageRefreshRetriesWholePageAfterConcurrentJoin(t *testing.T) {
+	fm, nk, _ := sessionFixture(t, 0, 3)
+	require.NoError(t, fm.storage.CreateGameSession(context.Background(), &runtime.InstanceInfo{Id: "second", Status: "ALLOCATED", Metadata: map[string]any{MaxPlayers: 3}}, "123", nil))
+	reads := 0
+	nk.AfterRead = func() {
+		reads++
+		if reads == 1 {
+			nk.AfterRead = nil
+			_, err := fm.Join(context.Background(), "second", []string{"new-user"}, nil)
+			require.NoError(t, err)
+		}
+	}
+	page := []*runtime.InstanceInfo{{Id: "instance", Status: "ALLOCATED", Metadata: map[string]any{"map": "arena"}}, {Id: "second", Status: "ALLOCATED", Metadata: map[string]any{"map": "arena"}}}
+	require.NoError(t, fm.storage.UpdateStorageGameSession(context.Background(), page))
+	require.Equal(t, 1, page[1].PlayerCount)
+	got, err := fm.storage.GetGameSessionFromStorage(context.Background(), "second")
+	require.NoError(t, err)
+	require.Equal(t, 1, got.PlayerCount)
+}
+func TestDeleteCompletesAfterConcurrentJoinWithoutRestartingTwice(t *testing.T) {
+	fm, _, client := sessionFixture(t, 0, 3)
+	ownedSession(t, fm, "instance")
+	client.EXPECT().RestartApplicationInstance(gomock.Any(), "instance").DoAndReturn(func(context.Context, string) error {
+		_, err := fm.Join(context.Background(), "instance", []string{"joined-during-restart"}, nil)
+		return err
+	}).Times(1)
+	require.NoError(t, fm.Delete(context.Background(), "instance"))
+	_, err := fm.storage.GetGameSessionFromStorage(context.Background(), "instance")
+	require.ErrorIs(t, err, storage.ErrSessionNotFound)
+}

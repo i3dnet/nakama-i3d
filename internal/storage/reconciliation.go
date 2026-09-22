@@ -134,3 +134,20 @@ func (fms *FleetManagerStorageService) GetGameSessionSnapshot(ctx context.Contex
 	}
 	return obj, nil
 }
+
+// SameAllocation reports a proven allocation identity, independently of storage
+// versions changed by joins/refreshes. Legacy records cannot prove this identity.
+func SameAllocation(left, right *api.StorageObject) (bool, error) {
+	if left == nil || right == nil || left.Key != right.Key {
+		return false, nil
+	}
+	a, err := decodeRecord(left.Value, left.Key)
+	if err != nil {
+		return false, err
+	}
+	b, err := decodeRecord(right.Value, right.Key)
+	if err != nil {
+		return false, err
+	}
+	return a.Local.Generation != "" && a.Local.Generation == b.Local.Generation, nil
+}
