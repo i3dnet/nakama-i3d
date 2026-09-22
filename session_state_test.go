@@ -176,7 +176,7 @@ func TestAuthoritativePlayerUpdatePreservesCapacity(t *testing.T) {
 }
 func TestRefreshCannotOverwriteConcurrentJoin(t *testing.T) {
 	fm, nk, client := sessionFixture(t, 0, 3)
-	client.EXPECT().GetApplicationInstance(gomock.Any(), "instance").Return(&runtime.InstanceInfo{Id: "instance", Status: "ALLOCATED", Metadata: map[string]any{"map": "new"}}, nil)
+	client.EXPECT().GetApplicationInstance(gomock.Any(), "instance").Return(&runtime.InstanceInfo{Id: "instance", Status: "ALLOCATED", Metadata: map[string]any{"map": "new"}}, nil).MinTimes(1).MaxTimes(2)
 	ready := make(chan struct{})
 	var reads atomic.Int32
 	nk.AfterRead = func() {

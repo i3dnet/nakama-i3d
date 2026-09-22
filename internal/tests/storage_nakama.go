@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"google.golang.org/protobuf/proto"
+	"sort"
 	"strconv"
 	"sync"
 
@@ -95,11 +96,35 @@ func (n *MemoryNakama) StorageDelete(ctx context.Context, deletes []*runtime.Sto
 	for _, d := range deletes {
 		obj := n.objects[d.Key]
 		if d.Version != "" && (obj == nil || obj.Version != d.Version) {
-			return runtime.ErrStorageRejectedVersion
+			return errors.New("Storage delete rejected - not found, version check failed, or permission denied.")
 		}
 	}
 	for _, d := range deletes {
 		delete(n.objects, d.Key)
 	}
 	return nil
+}
+func (n *MemoryNakama) StorageList(ctx context.Context, callerID, userID, collection string, limit int, cursor string) ([]*api.StorageObject, string, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, "", err
+	}
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	keys := make([]string, 0, len(n.objects))
+	for key, obj := range n.objects {
+		if obj.Collection == collection && key > cursor {
+			keys = append(keys, key)
+		}
+	}
+	sort.Strings(keys)
+	next := ""
+	if len(keys) > limit {
+		keys = keys[:limit]
+		next = keys[len(keys)-1]
+	}
+	out := make([]*api.StorageObject, 0, len(keys))
+	for _, key := range keys {
+		out = append(out, proto.Clone(n.objects[key]).(*api.StorageObject))
+	}
+	return out, next, nil
 }

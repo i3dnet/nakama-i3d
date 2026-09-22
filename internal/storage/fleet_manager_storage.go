@@ -21,6 +21,9 @@ var ErrSessionNotFound = errors.New("session not found")
 var ErrCorruptSession = errors.New("corrupt stored session")
 
 type FleetManagerStorage interface {
+	GetGameSessionSnapshot(context.Context, string) (*api.StorageObject, error)
+	SnapshotGameSessions(context.Context) ([]*api.StorageObject, error)
+	ReconcileGameSession(context.Context, *api.StorageObject, *runtime.InstanceInfo, string, string) error
 	CreateGameSession(ctx context.Context, instance *runtime.InstanceInfo, applicationID string, userIDs []string) error
 	MutateGameSession(ctx context.Context, id string, create bool, fn func(*runtime.InstanceInfo, map[string]bool) error) (*runtime.InstanceInfo, error)
 	GetGameSessionFromStorage(ctx context.Context, id string) (*runtime.InstanceInfo, error)

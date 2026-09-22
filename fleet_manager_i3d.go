@@ -22,6 +22,7 @@ type I3dFleetManager struct {
 	cancel          context.CancelFunc
 	lifecycleMu     sync.Mutex
 	stopping        bool
+	initialized     bool
 	operations      sync.WaitGroup
 	client          clients.ApplicationInstance
 	logger          runtime.Logger
@@ -43,6 +44,8 @@ func NewI3dFleetManager(
 	if cfg == nil {
 		return nil, ErrInvalidInput
 	}
+	snapshotConfig := *cfg
+	cfg = &snapshotConfig
 	lifetime, cancel := context.WithCancel(context.WithoutCancel(ctx))
 	success := false
 	defer func() {
@@ -89,15 +92,41 @@ func NewI3dFleetManager(
 func (fm *I3dFleetManager) Init(nk runtime.NakamaModule, callbackHandler runtime.FmCallbackHandler) error {
 	fm.logger.WithField("method_name", "Init").Debug("FleetManager - Entered Init Method")
 
+	fm.lifecycleMu.Lock()
+	defer fm.lifecycleMu.Unlock()
+	if fm.stopping || fm.initialized {
+		return fmt.Errorf("fleet manager already initialized or stopping")
+	}
 	fm.nk = nk
 	fm.callbackHandler = callbackHandler
+	fm.initialized = true
+	if fm.cfg.ReconcileInterval > 0 {
+		fm.operations.Add(1)
+		go fm.runReconciliation()
+	}
 
 	return nil
 }
 
 // Get retrieves an instance from the Fleet Manager API
-func (fm *I3dFleetManager) Get(ctx context.Context, id string) (instance *runtime.InstanceInfo, err error) {
+func (fm *I3dFleetManager) Get(ctx context.Context, id string) (*runtime.InstanceInfo, error) {
+	for attempt := 0; attempt < 4; attempt++ {
+		instance, err := fm.getSnapshot(ctx, id)
+		if !errors.Is(err, runtime.ErrStorageRejectedVersion) {
+			return instance, err
+		}
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+	}
+	return nil, runtime.ErrStorageWriteExhaustedRetries
+}
+func (fm *I3dFleetManager) getSnapshot(ctx context.Context, id string) (instance *runtime.InstanceInfo, err error) {
 	fm.logger.WithField("method_name", "Get").Debug("FleetManager - Entered Get Method")
+	snapshot, err := fm.storage.GetGameSessionSnapshot(ctx, id)
+	if err != nil {
+		return nil, err
+	}
 	instance, err = fm.client.GetApplicationInstance(ctx, id)
 
 	if err != nil {
@@ -107,12 +136,12 @@ func (fm *I3dFleetManager) Get(ctx context.Context, id string) (instance *runtim
 
 	// we only keep instances that are on status 5 (allocated) in the Nakama storage
 	if instance.Status != clients.ApplicationInstanceStatus[5] {
-		err = fm.storage.DeleteStorageGameSession(ctx, []string{instance.Id})
+		err = fm.storage.ReconcileGameSession(ctx, snapshot, nil, "", "")
 		if err != nil {
 			return nil, err
 		}
 	} else {
-		err = fm.storage.UpdateStorageGameSession(ctx, []*runtime.InstanceInfo{instance})
+		err = fm.storage.ReconcileGameSession(ctx, snapshot, instance, "", "")
 		if err != nil {
 			return nil, err
 		}
@@ -126,8 +155,7 @@ func (fm *I3dFleetManager) List(ctx context.Context, query string, limit int, pr
 	fm.logger.WithField("method_name", "List").Debug("FleetManager - Entered List Method")
 
 	if query == "" {
-		fb := NewFilterBuilder()
-		query = fb.Add(applicationId, fm.cfg.ApplicationId).Query()
+		query = fm.providerScope()
 
 		result, err := fm.client.ListApplicationInstances(ctx, query, limit, previousCursor)
 		if err != nil {
@@ -211,7 +239,16 @@ func (fm *I3dFleetManager) Create(ctx context.Context, maxPlayers int, userIds [
 	result := make(chan outcome, 1)
 	go func() {
 		defer fm.operations.Done()
-		instance, err := fm.client.AllocateApplicationInstance(operationCtx, requestMetadata, GetFilters(requestMetadata))
+		filters := GetFilters(requestMetadata)
+		if fm.cfg.FleetId != "" {
+			scope := NewFilterBuilder().Add(FleetId, fm.cfg.FleetId).Query()
+			if filters != "" {
+				filters = "(" + filters + ") and " + scope
+			} else {
+				filters = scope
+			}
+		}
+		instance, err := fm.client.AllocateApplicationInstance(operationCtx, requestMetadata, filters)
 		if err == nil && instance == nil {
 			err = errors.New("allocation returned no instance")
 		}
@@ -222,6 +259,9 @@ func (fm *I3dFleetManager) Create(ctx context.Context, maxPlayers int, userIds [
 			}
 			instance.PlayerCount = len(userIds)
 			instance.Metadata[MaxPlayers] = maxPlayers
+			if fm.cfg.FleetId != "" {
+				instance.Metadata["i3d_fleet_id"] = fm.cfg.FleetId
+			}
 			for _, userId := range userIds {
 				sessions = append(sessions, &runtime.SessionInfo{UserId: userId})
 			}
@@ -423,13 +463,20 @@ func (fm *I3dFleetManager) Delete(ctx context.Context, id string) error {
 	fm.logger.WithField("method_name", "Delete").Debug("FleetManager - Entered Delete Method")
 	fm.logger.WithField("instance_id", id).Debug("processing delete on api")
 
+	if strings.TrimSpace(id) == "" {
+		return ErrInvalidInput
+	}
+	snapshot, err := fm.storage.GetGameSessionSnapshot(ctx, id)
+	if err != nil {
+		return err
+	}
 	// because deleting the instance is slower than restarting it
-	err := fm.client.RestartApplicationInstance(ctx, id)
+	err = fm.client.RestartApplicationInstance(ctx, id)
 	if err != nil {
 		return err
 	}
 
-	err = fm.storage.DeleteStorageGameSession(ctx, []string{id})
+	err = fm.storage.ReconcileGameSession(ctx, snapshot, nil, "", "")
 	if err != nil {
 		fm.logger.WithField("error", err.Error()).Error("failed to delete storage")
 		return err

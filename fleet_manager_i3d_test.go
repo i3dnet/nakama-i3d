@@ -3,6 +3,7 @@ package fleetmanager
 import (
 	"context"
 	"errors"
+	"github.com/heroiclabs/nakama-common/api"
 	"github.com/heroiclabs/nakama-common/runtime"
 	"github.com/i3dnet/nakama-i3d/config"
 	"github.com/i3dnet/nakama-i3d/internal/clients"
@@ -60,10 +61,11 @@ func (suite *FleetManagerSuite) TestGet_shouldReturnInstance() {
 	client := mock.NewMockApplicationInstance(ctrl)
 	storageService := tests.NewMockFleetManagerStorage(ctrl)
 	defer ctrl.Finish()
+	storageService.EXPECT().GetGameSessionSnapshot(gomock.Any(), expected.Id).Return(&api.StorageObject{Key: expected.Id, Version: "v1"}, nil).Times(1)
 
 	client.EXPECT().GetApplicationInstance(gomock.Any(), gomock.Any()).Return(expected, nil).Times(1)
-	storageService.EXPECT().UpdateStorageGameSession(gomock.Any(), []*runtime.InstanceInfo{expected}).Return(nil).Times(1)
-	storageService.EXPECT().DeleteStorageGameSession(gomock.Any(), gomock.Any()).Return(nil).Times(0)
+	storageService.EXPECT().ReconcileGameSession(gomock.Any(), gomock.Any(), expected, "", "").Return(nil).Times(1)
+	storageService.EXPECT().ReconcileGameSession(gomock.Any(), gomock.Any(), nil, "", "").Return(nil).Times(0)
 
 	// act
 	result, err := suite.newTestFleetManager(client, storageService).Get(suite.ctx, expected.Id)
@@ -87,10 +89,11 @@ func (suite *FleetManagerSuite) TestGet_GivenInstanceNotStatusAllocated_shouldRe
 		client := mock.NewMockApplicationInstance(ctrl)
 		storageService := tests.NewMockFleetManagerStorage(ctrl)
 		defer ctrl.Finish()
+		storageService.EXPECT().GetGameSessionSnapshot(gomock.Any(), expected.Id).Return(&api.StorageObject{Key: expected.Id, Version: "v1"}, nil).Times(1)
 
 		client.EXPECT().GetApplicationInstance(gomock.Any(), gomock.Any()).Return(expected, nil).Times(1)
-		storageService.EXPECT().UpdateStorageGameSession(gomock.Any(), []*runtime.InstanceInfo{expected}).Return(nil).Times(0)
-		storageService.EXPECT().DeleteStorageGameSession(gomock.Any(), gomock.Any()).Return(nil).Times(1)
+		storageService.EXPECT().ReconcileGameSession(gomock.Any(), gomock.Any(), expected, "", "").Return(nil).Times(0)
+		storageService.EXPECT().ReconcileGameSession(gomock.Any(), gomock.Any(), nil, "", "").Return(nil).Times(1)
 
 		// act
 		result, err := suite.newTestFleetManager(client, storageService).Get(suite.ctx, expected.Id)
@@ -110,10 +113,11 @@ func (suite *FleetManagerSuite) TestGet_GivenAnApiError_ShouldReturnError() {
 	client := mock.NewMockApplicationInstance(ctrl)
 	storageService := tests.NewMockFleetManagerStorage(ctrl)
 	defer ctrl.Finish()
+	storageService.EXPECT().GetGameSessionSnapshot(gomock.Any(), expected.Id).Return(&api.StorageObject{Key: expected.Id, Version: "v1"}, nil).Times(1)
 
 	client.EXPECT().GetApplicationInstance(gomock.Any(), gomock.Any()).Return(nil, errors.New("Api Error")).Times(1)
-	storageService.EXPECT().UpdateStorageGameSession(gomock.Any(), []*runtime.InstanceInfo{expected}).Return(nil).Times(0)
-	storageService.EXPECT().DeleteStorageGameSession(gomock.Any(), gomock.Any()).Return(nil).Times(0)
+	storageService.EXPECT().ReconcileGameSession(gomock.Any(), gomock.Any(), expected, "", "").Return(nil).Times(0)
+	storageService.EXPECT().ReconcileGameSession(gomock.Any(), gomock.Any(), nil, "", "").Return(nil).Times(0)
 
 	// act
 	result, err := suite.newTestFleetManager(client, storageService).Get(suite.ctx, expected.Id)
@@ -131,10 +135,11 @@ func (suite *FleetManagerSuite) TestGet_GivenAnStorageUpdateError_ShouldReturnEr
 	client := mock.NewMockApplicationInstance(ctrl)
 	storageService := tests.NewMockFleetManagerStorage(ctrl)
 	defer ctrl.Finish()
+	storageService.EXPECT().GetGameSessionSnapshot(gomock.Any(), expected.Id).Return(&api.StorageObject{Key: expected.Id, Version: "v1"}, nil).Times(1)
 
 	client.EXPECT().GetApplicationInstance(gomock.Any(), gomock.Any()).Return(expected, nil).Times(1)
-	storageService.EXPECT().UpdateStorageGameSession(gomock.Any(), []*runtime.InstanceInfo{expected}).Return(errors.New("storage update error")).Times(1)
-	storageService.EXPECT().DeleteStorageGameSession(gomock.Any(), gomock.Any()).Return(nil).Times(0)
+	storageService.EXPECT().ReconcileGameSession(gomock.Any(), gomock.Any(), expected, "", "").Return(errors.New("storage update error")).Times(1)
+	storageService.EXPECT().ReconcileGameSession(gomock.Any(), gomock.Any(), nil, "", "").Return(nil).Times(0)
 
 	// act
 	result, err := suite.newTestFleetManager(client, storageService).Get(suite.ctx, expected.Id)
@@ -152,10 +157,11 @@ func (suite *FleetManagerSuite) TestGet_GivenAnStorageDeleteError_ShouldReturnEr
 	client := mock.NewMockApplicationInstance(ctrl)
 	storageService := tests.NewMockFleetManagerStorage(ctrl)
 	defer ctrl.Finish()
+	storageService.EXPECT().GetGameSessionSnapshot(gomock.Any(), expected.Id).Return(&api.StorageObject{Key: expected.Id, Version: "v1"}, nil).Times(1)
 
 	client.EXPECT().GetApplicationInstance(gomock.Any(), gomock.Any()).Return(expected, nil).Times(1)
-	storageService.EXPECT().UpdateStorageGameSession(gomock.Any(), []*runtime.InstanceInfo{expected}).Return(nil).Times(0)
-	storageService.EXPECT().DeleteStorageGameSession(gomock.Any(), gomock.Any()).Return(errors.New("storage delete error")).Times(1)
+	storageService.EXPECT().ReconcileGameSession(gomock.Any(), gomock.Any(), expected, "", "").Return(nil).Times(0)
+	storageService.EXPECT().ReconcileGameSession(gomock.Any(), gomock.Any(), nil, "", "").Return(errors.New("storage delete error")).Times(1)
 
 	// act
 	result, err := suite.newTestFleetManager(client, storageService).Get(suite.ctx, expected.Id)
@@ -657,9 +663,10 @@ func (suite *FleetManagerSuite) TestDelete_ShouldDelete() {
 	client := mock.NewMockApplicationInstance(ctrl)
 	storageService := tests.NewMockFleetManagerStorage(ctrl)
 	defer ctrl.Finish()
+	storageService.EXPECT().GetGameSessionSnapshot(gomock.Any(), expected.Id).Return(&api.StorageObject{Key: expected.Id, Version: "v1"}, nil).Times(1)
 
 	client.EXPECT().RestartApplicationInstance(gomock.Any(), expected.Id).Return(nil).Times(1)
-	storageService.EXPECT().DeleteStorageGameSession(gomock.Any(), []string{expected.Id}).Return(nil).Times(1)
+	storageService.EXPECT().ReconcileGameSession(gomock.Any(), gomock.Any(), nil, "", "").Return(nil).Times(1)
 
 	// act
 	err := suite.newTestFleetManager(client, storageService).Delete(suite.ctx, expected.Id)
@@ -676,9 +683,10 @@ func (suite *FleetManagerSuite) TestDelete_GivenAnApiError_ShouldReturnError() {
 	client := mock.NewMockApplicationInstance(ctrl)
 	storageService := tests.NewMockFleetManagerStorage(ctrl)
 	defer ctrl.Finish()
+	storageService.EXPECT().GetGameSessionSnapshot(gomock.Any(), expected.Id).Return(&api.StorageObject{Key: expected.Id, Version: "v1"}, nil).Times(1)
 
 	client.EXPECT().RestartApplicationInstance(gomock.Any(), expected.Id).Return(errors.New("failed")).Times(1)
-	storageService.EXPECT().DeleteStorageGameSession(gomock.Any(), []string{expected.Id}).Return(nil).Times(0)
+	storageService.EXPECT().ReconcileGameSession(gomock.Any(), gomock.Any(), nil, "", "").Return(nil).Times(0)
 
 	// act
 	err := suite.newTestFleetManager(client, storageService).Delete(suite.ctx, expected.Id)
@@ -695,9 +703,10 @@ func (suite *FleetManagerSuite) TestDelete_GivenAnStorageError_ShouldReturnError
 	client := mock.NewMockApplicationInstance(ctrl)
 	storageService := tests.NewMockFleetManagerStorage(ctrl)
 	defer ctrl.Finish()
+	storageService.EXPECT().GetGameSessionSnapshot(gomock.Any(), expected.Id).Return(&api.StorageObject{Key: expected.Id, Version: "v1"}, nil).Times(1)
 
 	client.EXPECT().RestartApplicationInstance(gomock.Any(), expected.Id).Return(nil).Times(1)
-	storageService.EXPECT().DeleteStorageGameSession(gomock.Any(), []string{expected.Id}).Return(errors.New("failed")).Times(1)
+	storageService.EXPECT().ReconcileGameSession(gomock.Any(), gomock.Any(), nil, "", "").Return(errors.New("failed")).Times(1)
 
 	// act
 	err := suite.newTestFleetManager(client, storageService).Delete(suite.ctx, expected.Id)

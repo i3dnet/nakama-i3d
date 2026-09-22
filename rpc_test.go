@@ -68,17 +68,19 @@ func TestServerUpdateRPCUsesDocumentedPayload(t *testing.T) {
 func TestServerDeleteRPCUsesDocumentedPayload(t *testing.T) {
 	fm, client, cache, _, _ := createFixture(t)
 	client.EXPECT().RestartApplicationInstance(gomock.Any(), "instance").Return(nil)
-	cache.EXPECT().DeleteStorageGameSession(gomock.Any(), []string{"instance"}).Return(nil)
+	cache.EXPECT().GetGameSessionSnapshot(gomock.Any(), "instance").Return(nil, nil)
+	cache.EXPECT().ReconcileGameSession(gomock.Any(), nil, nil, "", "").Return(nil)
 	_, err := fm.DeleteInstanceInfo(context.Background(), fm.logger, nil, nil, `{"id":"instance"}`)
 	require.NoError(t, err)
 }
 func TestLifecycleRPCControlsProviderErrors(t *testing.T) {
 	for _, rpc := range []string{"update", "delete"} {
 		t.Run(rpc, func(t *testing.T) {
-			fm, client, _, _, _ := createFixture(t)
+			fm, client, cache, _, _ := createFixture(t)
 			handler := fm.UpdateInstanceInfo
 			if rpc == "delete" {
 				handler = fm.DeleteInstanceInfo
+				cache.EXPECT().GetGameSessionSnapshot(gomock.Any(), "instance").Return(nil, nil)
 				client.EXPECT().RestartApplicationInstance(gomock.Any(), "instance").Return(errors.New("provider failed"))
 			} else {
 				client.EXPECT().UpdateApplicationInstance(gomock.Any(), "instance", gomock.Any()).Return(nil, errors.New("provider failed"))
