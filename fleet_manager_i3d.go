@@ -3,7 +3,6 @@ package fleetmanager
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/heroiclabs/nakama-common/runtime"
@@ -202,12 +201,8 @@ func (fm *I3dFleetManager) Create(ctx context.Context, maxPlayers int, userIds [
 		seen[id] = struct{}{}
 	}
 	// Own the accepted request; callers may reuse their maps/slices after returning.
-	encoded, err := json.Marshal(metadata)
+	requestMetadata, err := cloneMetadata(metadata)
 	if err != nil {
-		return nil, ErrInvalidInput
-	}
-	var requestMetadata map[string]any
-	if err = json.Unmarshal(encoded, &requestMetadata); err != nil {
 		return nil, ErrInvalidInput
 	}
 	userIds = append([]string(nil), userIds...)

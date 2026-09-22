@@ -242,3 +242,65 @@ func TestShutdownRejectsFurtherCreate(t *testing.T) {
 	require.Empty(t, registry.callbacks)
 	registry.mu.Unlock()
 }
+
+func TestCreateOwnsMetadataWithoutChangingScalarTypes(t *testing.T) {
+	fm, client, cache, _, _ := createFixture(t)
+	release := make(chan struct{})
+	captured := make(chan map[string]any, 1)
+	client.EXPECT().AllocateApplicationInstance(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, metadata map[string]any, _ string) (*runtime.InstanceInfo, error) {
+		<-release
+		captured <- metadata
+		return &runtime.InstanceInfo{Id: "instance"}, nil
+	})
+	cache.EXPECT().CreateGameSession(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+	type mode string
+	type settings struct {
+		Limits []int
+		Seed   *int64
+	}
+	seed := int64(6268349608002583795)
+	metadata := map[string]any{
+		"overwriteApplicationId": seed,
+		"nested":                 map[string]any{"seed": seed},
+		"names":                  []string{"arena"},
+		"modes":                  map[string]mode{"primary": "ranked"},
+		"values":                 []any{uint64(18446744073709551615), []int{7, 8}},
+		"settings":               &settings{Limits: []int{4}, Seed: &seed},
+	}
+	want := map[string]any{
+		"overwriteApplicationId": int64(6268349608002583795),
+		"nested":                 map[string]any{"seed": int64(6268349608002583795)},
+		"names":                  []string{"arena"},
+		"modes":                  map[string]mode{"primary": "ranked"},
+		"values":                 []any{uint64(18446744073709551615), []int{7, 8}},
+		"settings":               &settings{Limits: []int{4}, Seed: func() *int64 { n := int64(6268349608002583795); return &n }()},
+	}
+	done := make(chan createResult, 1)
+	_, err := fm.Create(context.Background(), 2, nil, nil, metadata, resultCallback(done))
+	require.NoError(t, err)
+	metadata["overwriteApplicationId"] = int64(1)
+	metadata["nested"].(map[string]any)["seed"] = int64(2)
+	metadata["names"].([]string)[0] = "changed"
+	metadata["modes"].(map[string]mode)["primary"] = "changed"
+	metadata["values"].([]any)[1].([]int)[0] = 9
+	metadata["settings"].(*settings).Limits[0] = 10
+	seed = 0
+	close(release)
+	result := awaitCreate(t, done)
+	require.NoError(t, result.err)
+	require.Equal(t, want, <-captured)
+	require.Equal(t, want, result.metadata)
+}
+
+func TestCreateRejectsNonJSONMetadataBeforeRegisteringCallback(t *testing.T) {
+	cyclic := map[string]any{}
+	cyclic["self"] = cyclic
+	for _, metadata := range []map[string]any{{"channel": make(chan int)}, cyclic} {
+		fm, _, _, registry, _ := createFixture(t)
+		_, err := fm.Create(context.Background(), 2, nil, nil, metadata, resultCallback(make(chan createResult, 1)))
+		require.ErrorIs(t, err, ErrInvalidInput)
+		registry.mu.Lock()
+		require.Empty(t, registry.callbacks)
+		registry.mu.Unlock()
+	}
+}
