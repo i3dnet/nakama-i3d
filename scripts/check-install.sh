@@ -4,7 +4,7 @@ set -euo pipefail
 version="${1:?Usage: scripts/check-install.sh <published-commit-or-tag>}"
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 tmp="$(mktemp -d)"
-trap 'rm -rf "$tmp"' EXIT
+trap 'chmod -R u+w "$tmp"; rm -rf "$tmp"' EXIT
 export GOWORK=off GOMODCACHE="$tmp/modcache" GOPRIVATE= GONOPROXY= GONOSUMDB=
 mkdir "$tmp/consumer"
 cd "$tmp/consumer"
