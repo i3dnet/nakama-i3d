@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/heroiclabs/nakama-common/api"
 	"github.com/heroiclabs/nakama-common/runtime"
 	"github.com/i3dnet/nakama-i3d/internal/clients"
 	"github.com/i3dnet/nakama-i3d/internal/storage"
@@ -217,4 +218,32 @@ func TestProviderResponseCannotDeleteReallocatedSession(t *testing.T) {
 			require.Equal(t, "ALLOCATED", got.Status)
 		})
 	}
+}
+
+type allocationDuringSnapshot struct {
+	storage.FleetManagerStorage
+	create func()
+}
+
+func (s allocationDuringSnapshot) SnapshotGameSessions(ctx context.Context) ([]*api.StorageObject, error) {
+	s.create()
+	return s.FleetManagerStorage.SnapshotGameSessions(ctx)
+}
+func TestReconciliationExcludesAllocationCreatedDuringStorageScan(t *testing.T) {
+	fm, _, client := sessionFixture(t, 0, 4)
+	fm.cfg.ApplicationId = "123"
+	base := fm.storage
+	fm.storage = allocationDuringSnapshot{FleetManagerStorage: base, create: func() {
+		require.NoError(t, base.CreateGameSession(context.Background(), &runtime.InstanceInfo{Id: "new", Status: "ALLOCATED", CreateTime: time.Unix(200, 0), Metadata: map[string]any{MaxPlayers: 4, "map": "new-game"}}, "123", nil))
+	}}
+	// The provider scan can briefly still return the previous generation.
+	client.EXPECT().ListApplicationInstances(gomock.Any(), gomock.Any(), 100, "").Return(&clients.ApplicationInstanceListResponse{Instances: []*runtime.InstanceInfo{{Id: "new", Status: "ALLOCATED", CreateTime: time.Unix(100, 0), Metadata: map[string]any{"map": "old-game"}}}}, nil)
+	_, err := fm.reconcileOnce(context.Background(), nil, time.Now())
+	require.NoError(t, err)
+	got, err := base.GetGameSessionFromStorage(context.Background(), "new")
+	require.NoError(t, err)
+	require.Equal(t, "new-game", got.Metadata["map"])
+	capacity, err := getMaxPlayers(got)
+	require.NoError(t, err)
+	require.Equal(t, 4, capacity)
 }

@@ -90,11 +90,18 @@ func (fm *I3dFleetManager) reconcileSnapshot(ctx context.Context, previous map[s
 	}
 	byID := map[string]*api.StorageObject{}
 	missing := map[string]string{}
+	createdDuringScan := map[string]bool{}
 	for _, obj := range snapshot {
 		byID[obj.Key] = obj
 		scoped, allocatedAt, err := storage.SnapshotInScope(obj, fm.cfg.ApplicationId, fm.cfg.FleetId)
 		if err != nil {
 			return nil, err
+		}
+		// Storage pagination is not a transaction-wide snapshot. An allocation
+		// may be written after this pass starts but before its page is read.
+		if !allocatedAt.IsZero() && !allocatedAt.Before(now) {
+			createdDuringScan[obj.Key] = true
+			continue
 		}
 		incoming := provider[obj.Key]
 		if incoming != nil && incoming.Status == clients.ApplicationInstanceStatus[5] {
@@ -112,6 +119,9 @@ func (fm *I3dFleetManager) reconcileSnapshot(ctx context.Context, previous map[s
 		}
 	}
 	for id, incoming := range provider {
+		if createdDuringScan[id] {
+			continue
+		}
 		if incoming.Status != clients.ApplicationInstanceStatus[5] {
 			continue
 		}
