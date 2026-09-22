@@ -1,6 +1,6 @@
 # Release candidate checklist — 22 September 2026
 
-Implementation candidate: 20a8631305f5f9adfa66d2869bd593230a760477, publicly resolved as v0.0.0-20260922152017-20a8631305f5. Main was reviewed at f26ac9d83ebb1a70f492db70b69eacf842403cb6. The deployed artifact is unknown.
+Implementation candidate: f9673c4415288fd3c740da609178fcdf365105ce, publicly resolved as v0.0.0-20260922154340-f9673c441528. Main was reviewed at f26ac9d83ebb1a70f492db70b69eacf842403cb6. The deployed artifact is unknown.
 
 ## Review stack
 
@@ -22,6 +22,7 @@ Merge in order after review; each PR is based on the preceding branch. Do not re
 | [#19](https://github.com/i3dnet/nakama-i3d/pull/19) | Stateful provider mock and request validation |
 | [#20](https://github.com/i3dnet/nakama-i3d/pull/20) | Real two-client lifecycle/native storage smoke |
 | [#23](https://github.com/i3dnet/nakama-i3d/pull/23) | This guide, compiled snippets and release evidence |
+| [#24](https://github.com/i3dnet/nakama-i3d/pull/24) | Preserve allocations and storage updates made during reconciliation pagination |
 
 ## Completed candidate evidence
 
@@ -31,8 +32,8 @@ Merge in order after review; each PR is based on the preceding branch. Do not re
 - [x] Native PostgreSQL-backed StorageWriteRetry conflict, concurrent Join admission and rejected stale delete.
 - [x] Actual storage-index sorting and continuation pages. Sort fields use value.player_count and value.create_time.
 - [x] Provider multi-page reconciliation, missed termination without restart, invalid readiness and bounded timeout without allocation retry.
-- [x] Unit regression coverage for callback lifetime/one terminal callback, failed provider pages, Create/Join/reallocation races, OAuth refresh and cancellation.
-- [x] Fresh public Go module cache, no clone/replace/private GitLab credentials: scripts/check-install.sh at 20a8631 resolves the pseudo-version above and compiles the real example.
+- [x] Unit regression coverage for callback lifetime/one terminal callback, failed provider pages, Create/Join/reallocation races, storage pagination boundaries, OAuth refresh and cancellation.
+- [x] Fresh public Go module cache, no clone/replace/private GitLab credentials: scripts/check-install.sh at f9673c4 resolves the pseudo-version above and compiles the real example.
 - [x] Partner guide Go files and filter block compiled/tested in an isolated consumer through scripts/check-docs.py. CI recompiles the actual Markdown blocks.
 - [x] Documented unwrapped JSON lifecycle payloads executed against Nakama's HTTP-key endpoint.
 - [x] Ordinary plugin builds exclude the i3d_smoke test RPCs.
