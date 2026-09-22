@@ -42,13 +42,23 @@ func (gm *GinMapping) create() error {
 	}
 
 	gm.router.GET("/healthz", Healthz)
+	gm.router.Use(func(c *gin.Context) {
+		if c.GetHeader("PRIVATE-TOKEN") != "test-token" {
+			c.AbortWithStatusJSON(401, gin.H{"error": "test token required"})
+			return
+		}
+		c.Next()
+	})
 
 	v3 := gm.router.Group("/v3/applicationInstance")
 
-	v3.GET("/", gm.applicationInstanceController.List)
+	v3.GET("", gm.applicationInstanceController.List)
 	v3.PUT("/game/:applicationId/empty/allocate", gm.applicationInstanceController.Create)
 	v3.GET("/:instanceId", gm.applicationInstanceController.Get)
-	v3.DELETE(":instanceId", gm.applicationInstanceController.Delete)
+	v3.PUT("/:instanceId", gm.applicationInstanceController.Update)
+	v3.POST("/:instanceId/restart", gm.applicationInstanceController.Restart)
+	gm.router.GET("/_test/state", gm.applicationInstanceController.State)
+	gm.router.POST("/_test/instances/:instanceId/status", gm.applicationInstanceController.SetStatus)
 
 	return nil
 }

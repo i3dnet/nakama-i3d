@@ -19,7 +19,7 @@ jobs:
             race: ''
           - module: mock_api_server/src
             go: '1.24.1'
-            race: ''
+            race: '-race'
           - module: nakama_test_client/src
             go: '1.24.1'
             race: ''
