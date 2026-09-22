@@ -1,0 +1,37 @@
+name: CI
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - module: plugin/fleetmanager/src
+            go: '1.23.5'
+            race: '-race'
+          - module: plugin/example/src
+            go: '1.23.5'
+            race: ''
+          - module: mock_api_server/src
+            go: '1.24.1'
+            race: ''
+          - module: nakama_test_client/src
+            go: '1.24.1'
+            race: ''
+    defaults:
+      run:
+        working-directory: ${{ matrix.module }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go }}
+          cache-dependency-path: ${{ matrix.module }}/go.sum
+      - run: go test -mod=readonly ${{ matrix.race }} -count=1 ./...
+      - run: go vet -mod=readonly ./...
+      - run: git diff --exit-code -- '**/go.mod' '**/go.sum'

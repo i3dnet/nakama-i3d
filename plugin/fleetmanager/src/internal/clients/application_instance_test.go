@@ -19,28 +19,38 @@ import (
 )
 
 func newOneApiTestClient(cfg *config.Config, authentication Authentication, httpClient *http.Client, logger runtime.Logger) *OneApiClient {
-	return &OneApiClient{
-		cfg:            cfg,
-		logger:         logger,
-		authentication: authentication,
-		httpClient:     httpClient,
-	}
+	client := NewOneApiClient(cfg, authentication, logger)
+	client.httpClient = httpClient
+	return client
 }
 
 type mockRoundTripper struct {
 	response *http.Response
+	body     []byte
 	err      error
 }
 
 func newMockRoundTripper(response *http.Response, err error) *mockRoundTripper {
+	var body []byte
+	if response != nil && response.Body != nil {
+		body, _ = io.ReadAll(response.Body)
+		response.Body = io.NopCloser(bytes.NewReader(body))
+	}
 	return &mockRoundTripper{
+		body:     body,
 		response: response,
 		err:      err,
 	}
 }
 
 func (m *mockRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
-	return m.response, m.err
+	if m.response == nil {
+		return nil, m.err
+	}
+	response := *m.response
+	response.Header = m.response.Header.Clone()
+	response.Body = io.NopCloser(bytes.NewReader(m.body))
+	return &response, m.err
 }
 
 type ApplicationInstanceTestSuite struct {
@@ -52,6 +62,7 @@ type ApplicationInstanceTestSuite struct {
 func (suite *ApplicationInstanceTestSuite) SetupTest() {
 
 	suite.cfg = &config.Config{
+		Retry: config.Retry{Attempts: 1},
 		App: config.App{
 			Name:    "test",
 			Version: "1.0.1",
