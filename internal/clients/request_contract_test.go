@@ -34,7 +34,9 @@ func TestAllocationSendsMetadataAndRawFilterOnce(t *testing.T) {
 	client := contractClient(t, func(w http.ResponseWriter, r *http.Request) {
 		method, path, filter = r.Method, r.URL.Path, r.URL.Query().Get("filters")
 		_ = json.NewDecoder(r.Body).Decode(&body)
-		writeInstances(w, []openapi.ApplicationInstance{validProviderInstance()})
+		instance := validProviderInstance()
+		instance.ApplicationId = "456"
+		writeInstances(w, []openapi.ApplicationInstance{instance})
 	})
 	_, err := client.AllocateApplicationInstance(context.Background(), map[string]any{"map": "arena", ApplicationId: "456", I3dFilters: "routing", "i3d_max_players": 10}, `fleetName="EU \"West\""`)
 	require.NoError(t, err)
@@ -158,4 +160,41 @@ func TestListFailsWholePageOnInvalidInstance(t *testing.T) {
 	got, err := client.ListApplicationInstances(context.Background(), "", 10, "")
 	require.Error(t, err)
 	require.Nil(t, got)
+}
+
+func TestGetRejectsMismatchedInstanceIdentity(t *testing.T) {
+	client := contractClient(t, func(w http.ResponseWriter, r *http.Request) {
+		instance := validProviderInstance()
+		instance.Id = "other"
+		writeInstances(w, []openapi.ApplicationInstance{instance})
+	})
+	got, err := client.GetApplicationInstance(context.Background(), "instance-1")
+	require.Error(t, err)
+	require.Nil(t, got)
+}
+func TestAllocateRejectsMismatchedApplication(t *testing.T) {
+	for _, metadata := range []map[string]any{nil, {ApplicationId: "456"}, {ApplicationId: int64(6268349608002583795)}} {
+		client := contractClient(t, func(w http.ResponseWriter, r *http.Request) {
+			instance := validProviderInstance()
+			instance.ApplicationId = "other"
+			writeInstances(w, []openapi.ApplicationInstance{instance})
+		})
+		got, err := client.AllocateApplicationInstance(context.Background(), metadata, "")
+		require.Error(t, err)
+		require.Nil(t, got)
+	}
+}
+func TestProviderRejectsNonPublicAddressesDespitePublicFlag(t *testing.T) {
+	for _, address := range []string{"127.0.0.1", "10.1.2.3", "172.16.0.1", "192.168.1.2", "169.254.1.1", "0.0.0.0", "224.0.0.1", "::1", "fc00::1", "fe80::1", "::", "ff02::1", "::ffff:192.168.1.2"} {
+		t.Run(address, func(t *testing.T) {
+			instance := validProviderInstance()
+			instance.IpAddress[0].IpAddress = address
+			client := contractClient(t, func(w http.ResponseWriter, r *http.Request) {
+				writeInstances(w, []openapi.ApplicationInstance{instance})
+			})
+			got, err := client.GetApplicationInstance(context.Background(), "instance-1")
+			require.Error(t, err)
+			require.Nil(t, got)
+		})
+	}
 }

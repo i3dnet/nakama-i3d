@@ -15,7 +15,7 @@ func GetApplicationInstance() *ApplicationInstance {
 	IPAddresses := make([]IPAddress, 0, 1)
 	IPAddresses = append(IPAddresses, IPAddress{
 		Private:   0,
-		IPAddress: "127.0.0.1",
+		IPAddress: "203.0.113.10",
 		IPVersion: 4,
 	})
 

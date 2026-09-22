@@ -94,7 +94,7 @@ func (suite *ApplicationInstanceTestSuite) TestGetApplicationInstance_success() 
 	auth.EXPECT().IsExpired().Return(false).AnyTimes()
 	auth.EXPECT().GetAccessToken(gomock.Any()).Times(0)
 	const port = 1234
-	const ipAddress = "127.0.0.1"
+	const ipAddress = "203.0.113.10"
 	// create a mock response
 	instance := applicationInstanceMock([]openapi.ApplicationInstanceIP{
 		{
@@ -145,7 +145,7 @@ func (suite *ApplicationInstanceTestSuite) TestGetApplicationInstance_whenPrivat
 		},
 		{
 			Private:   1,
-			IpAddress: "127.0.0.1",
+			IpAddress: "203.0.113.10",
 			IpVersion: 4,
 		},
 	}, []openapi.ApplicationInstanceProperty{
@@ -185,7 +185,7 @@ func (suite *ApplicationInstanceTestSuite) TestGetApplicationInstance_failed() {
 	instance := applicationInstanceMock([]openapi.ApplicationInstanceIP{
 		{
 			Private:   0,
-			IpAddress: "127.0.0.1",
+			IpAddress: "203.0.113.10",
 			IpVersion: 4,
 		},
 	}, []openapi.ApplicationInstanceProperty{
@@ -221,9 +221,9 @@ func (suite *ApplicationInstanceTestSuite) TestListApplicationInstances_success(
 	auth.EXPECT().IsExpired().Return(false).AnyTimes()
 	auth.EXPECT().GetAccessToken(gomock.Any()).Times(0)
 	const port1 = 1234
-	const ipAddress1 = "127.0.0.1"
+	const ipAddress1 = "203.0.113.10"
 	const port2 = 1235
-	const ipAddress2 = "127.0.0.2"
+	const ipAddress2 = "203.0.113.11"
 	// create a mock response
 	instance1 := applicationInstanceMock([]openapi.ApplicationInstanceIP{
 		{
@@ -284,9 +284,9 @@ func (suite *ApplicationInstanceTestSuite) TestListApplicationInstances_failed()
 	auth.EXPECT().IsExpired().Return(false).AnyTimes()
 	auth.EXPECT().GetAccessToken(gomock.Any()).Times(0)
 	const port1 = 1234
-	const ipAddress1 = "127.0.0.1"
+	const ipAddress1 = "203.0.113.10"
 	const port2 = 1235
-	const ipAddress2 = "127.0.0.2"
+	const ipAddress2 = "203.0.113.11"
 	// create a mock response
 	instance1 := applicationInstanceMock([]openapi.ApplicationInstanceIP{
 		{
@@ -343,7 +343,7 @@ func (suite *ApplicationInstanceTestSuite) TestAllocateApplicationInstance_succe
 	auth.EXPECT().IsExpired().Return(false).AnyTimes()
 	auth.EXPECT().GetAccessToken(gomock.Any()).Times(0)
 	const port = 1234
-	const ipAddress = "127.0.0.1"
+	const ipAddress = "203.0.113.10"
 	// create a mock response
 	instance := applicationInstanceMock([]openapi.ApplicationInstanceIP{
 		{
@@ -396,7 +396,7 @@ func (suite *ApplicationInstanceTestSuite) TestAllocateApplicationInstance_faile
 	auth.EXPECT().IsExpired().Return(false).AnyTimes()
 	auth.EXPECT().GetAccessToken(gomock.Any()).Times(0)
 	const port = 1234
-	const ipAddress = "127.0.0.1"
+	const ipAddress = "203.0.113.10"
 
 	// create a mock response
 	instance := applicationInstanceMock([]openapi.ApplicationInstanceIP{
@@ -452,7 +452,7 @@ func (suite *ApplicationInstanceTestSuite) TestRestartApplicationInstance_succes
 		},
 		{
 			Private:   1,
-			IpAddress: "127.0.0.1",
+			IpAddress: "203.0.113.10",
 			IpVersion: 4,
 		},
 	}, []openapi.ApplicationInstanceProperty{
@@ -488,7 +488,7 @@ func (suite *ApplicationInstanceTestSuite) TestRestartApplicationInstance_failed
 	instance := applicationInstanceMock([]openapi.ApplicationInstanceIP{
 		{
 			Private:   0,
-			IpAddress: "127.0.0.1",
+			IpAddress: "203.0.113.10",
 			IpVersion: 4,
 		},
 	}, []openapi.ApplicationInstanceProperty{
@@ -523,7 +523,7 @@ func (suite *ApplicationInstanceTestSuite) TestUpdateApplicationInstance_success
 	auth.EXPECT().IsExpired().Return(false).AnyTimes()
 	auth.EXPECT().GetAccessToken(gomock.Any()).Times(0)
 	const port = 1234
-	const ipAddress = "127.0.0.1"
+	const ipAddress = "203.0.113.10"
 	// create a mock response
 	instance := applicationInstanceMock([]openapi.ApplicationInstanceIP{
 		{
@@ -577,7 +577,7 @@ func (suite *ApplicationInstanceTestSuite) TestUpdateApplicationInstance_failed(
 	auth.EXPECT().IsExpired().Return(false).AnyTimes()
 	auth.EXPECT().GetAccessToken(gomock.Any()).Times(0)
 	const port = 1234
-	const ipAddress = "127.0.0.1"
+	const ipAddress = "203.0.113.10"
 
 	// create a mock response
 	instance := applicationInstanceMock([]openapi.ApplicationInstanceIP{
@@ -621,6 +621,7 @@ func applicationInstanceMock(ipAddresses []openapi.ApplicationInstanceIP, proper
 		panic(err)
 	}
 
+	instance.ApplicationId = "1235"
 	instance.Status = 5
 	instance.IpAddress = ipAddresses
 	instance.Properties = properties

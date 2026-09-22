@@ -149,7 +149,7 @@ func (h *harness) waitNotification(conn *websocket.Conn) error {
 			if err := json.Unmarshal([]byte(notification.Content), &content); err != nil {
 				return err
 			}
-			if content.IpAddress != "127.0.0.1" || content.Port != 7777 || content.SessionId != "" {
+			if content.IpAddress != "203.0.113.10" || content.Port != 7777 || content.SessionId != "" {
 				return fmt.Errorf("invalid connection notification: %+v", content)
 			}
 			return nil

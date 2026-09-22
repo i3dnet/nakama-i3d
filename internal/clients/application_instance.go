@@ -95,6 +95,9 @@ func (o *OneApiClient) GetApplicationInstance(ctx context.Context, instanceID st
 	if len(response) != 1 {
 		return nil, fmt.Errorf("expected one instance, got %d", len(response))
 	}
+	if response[0].Id != instanceID {
+		return nil, fmt.Errorf("provider returned a different instance")
+	}
 	instanceInfo, err := o.mapToInstanceInfo(response[0])
 	if err != nil {
 		o.logger.WithField("error", err.Error()).Error("failed to map instance")
@@ -117,7 +120,8 @@ func (o *OneApiClient) AllocateApplicationInstance(ctx context.Context, metaData
 	if err != nil {
 		return nil, err
 	}
-	request := client.ApplicationInstanceAPI.UpdateApplicationInstanceGameEmptyAllocate(ctx, o.getApplicationId(metaData))
+	applicationID := o.getApplicationId(metaData)
+	request := client.ApplicationInstanceAPI.UpdateApplicationInstanceGameEmptyAllocate(ctx, applicationID)
 	if filters != "" {
 		request = request.Filters(filters)
 	}
@@ -134,6 +138,9 @@ func (o *OneApiClient) AllocateApplicationInstance(ctx context.Context, metaData
 
 	if len(response) != 1 {
 		return nil, fmt.Errorf("expected one instance, got %d", len(response))
+	}
+	if response[0].ApplicationId != applicationID {
+		return nil, fmt.Errorf("provider returned an instance from a different application")
 	}
 	instanceInfo, err := o.mapToInstanceInfo(response[0])
 	if err != nil {
@@ -197,7 +204,7 @@ func (o *OneApiClient) mapToInstanceInfo(instance openapi.ApplicationInstance) (
 	var connectionInfo *runtime.ConnectionInfo
 	for _, ip := range instance.IpAddress {
 		address := net.ParseIP(ip.IpAddress)
-		if ip.Private == 0 && address != nil && !address.IsUnspecified() && !address.IsMulticast() {
+		if ip.Private == 0 && address != nil && address.IsGlobalUnicast() && !address.IsPrivate() {
 			connectionInfo = &runtime.ConnectionInfo{
 				IpAddress: ip.IpAddress,
 			}

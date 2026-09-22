@@ -237,3 +237,21 @@ func TestOAuthRequestHonorsCancellation(t *testing.T) {
 		t.Fatal("OAuth request ignored cancellation")
 	}
 }
+
+func TestReadRetriesTruncatedSuccessfulResponse(t *testing.T) {
+	var calls atomic.Int32
+	client := contractClient(t, func(w http.ResponseWriter, r *http.Request) {
+		if calls.Add(1) == 1 {
+			w.Header().Set("Content-Type", "application/json")
+			w.Header().Set("Content-Length", "100")
+			_, _ = w.Write([]byte("["))
+			return
+		}
+		writeInstances(w, []openapi.ApplicationInstance{validProviderInstance()})
+	})
+	client.cfg.Attempts = 3
+	got, err := client.GetApplicationInstance(context.Background(), "instance-1")
+	require.NoError(t, err)
+	require.NotNil(t, got)
+	require.EqualValues(t, 2, calls.Load())
+}

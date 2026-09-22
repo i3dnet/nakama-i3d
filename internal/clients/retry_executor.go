@@ -71,7 +71,10 @@ func retryableRead(err error) bool {
 		case 408, 429, 500, 502, 503, 504:
 			return true
 		}
-		return false
+		if response.code < 200 || response.code >= 300 {
+			return false
+		}
+		// Successful headers can precede a truncated response body.
 	}
 	var network net.Error
 	return errors.As(err, &network) || errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF)
