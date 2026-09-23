@@ -90,6 +90,8 @@ func copyMetadataValue(value reflect.Value, seen map[metadataReference]reflect.V
 
 func validateMetadataCopy(value reflect.Value, seen map[metadataReference]bool) error {
 	switch value.Kind() {
+	case reflect.Chan, reflect.Func, reflect.UnsafePointer:
+		return fmt.Errorf("metadata type %s cannot be copied safely", value.Type())
 	case reflect.Map, reflect.Slice, reflect.Pointer:
 		if value.IsNil() {
 			return nil

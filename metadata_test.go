@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"github.com/stretchr/testify/require"
 	"testing"
+	"unsafe"
 )
 
 type mutableMetadataKey struct{ Value string }
@@ -52,4 +53,24 @@ func TestMetadataCopyPreservesNamedPointerType(t *testing.T) {
 	require.IsType(t, namedMetadataPointer(nil), copied["pointer"])
 	value = 9
 	require.Equal(t, 7, *copied["pointer"].(namedMetadataPointer))
+}
+
+type channelMetadata chan int
+
+func (channelMetadata) MarshalJSON() ([]byte, error) { return []byte("[]"), nil }
+
+type functionMetadata func() int
+
+func (functionMetadata) MarshalJSON() ([]byte, error) { return []byte("1"), nil }
+
+type opaquePointerMetadata struct{ Pointer unsafe.Pointer }
+
+func (opaquePointerMetadata) MarshalJSON() ([]byte, error) { return []byte("null"), nil }
+
+func TestMetadataRejectsUncopyableReferencesEvenWithCustomJSON(t *testing.T) {
+	value := 7
+	for _, metadata := range []any{channelMetadata(make(chan int, 1)), functionMetadata(func() int { return value }), opaquePointerMetadata{Pointer: unsafe.Pointer(&value)}} {
+		_, err := cloneMetadata(map[string]any{"value": metadata})
+		require.Error(t, err)
+	}
 }
