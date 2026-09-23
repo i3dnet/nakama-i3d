@@ -22,6 +22,8 @@ type ApplicationInstanceController struct {
 	instances                             map[string]*models.ApplicationInstance
 	allocations, updates, restarts, lists int
 	pageSize                              int
+	pages                                 map[string]mockPage
+	nextPage                              uint64
 }
 
 func NewApplicationInstanceController() *ApplicationInstanceController {
@@ -29,7 +31,7 @@ func NewApplicationInstanceController() *ApplicationInstanceController {
 	second := models.GetApplicationInstance()
 	second.Id = "723709572904"
 	size, _ := strconv.Atoi(os.Getenv("MOCK_PAGE_SIZE"))
-	return &ApplicationInstanceController{instances: map[string]*models.ApplicationInstance{first.Id: first, second.Id: second}, pageSize: size}
+	return &ApplicationInstanceController{instances: map[string]*models.ApplicationInstance{first.Id: first, second.Id: second}, pageSize: size, pages: make(map[string]mockPage)}
 }
 func decode(c *gin.Context, value any) bool {
 	decoder := json.NewDecoder(io.LimitReader(c.Request.Body, 1<<20))
@@ -67,7 +69,11 @@ func matches(instance *models.ApplicationInstance, filter string) (bool, error) 
 	if filter == "" {
 		return true, nil
 	}
-	for _, term := range strings.Split(filter, " and ") {
+	terms, err := filterTerms(filter)
+	if err != nil {
+		return false, err
+	}
+	for _, term := range terms {
 		term = strings.Trim(strings.TrimSpace(term), "()")
 		key, value, ok := strings.Cut(term, "=")
 		key = strings.TrimSpace(key)
@@ -106,8 +112,9 @@ func (gm *ApplicationInstanceController) Create(c *gin.Context) {
 	if !decode(c, &body) {
 		return
 	}
-	if !validMetadata(body.Metadata) {
-		c.JSON(400, gin.H{"error": "metadata array is required"})
+	changes, err := metadataChanges(body.Metadata)
+	if err != nil {
+		c.JSON(400, gin.H{"error": err.Error()})
 		return
 	}
 	gm.mu.Lock()
@@ -125,7 +132,7 @@ func (gm *ApplicationInstanceController) Create(c *gin.Context) {
 		}
 		if match && instance.ApplicationID == c.Param("applicationId") && instance.Status == 4 {
 			instance.Status = 5
-			instance.Metadata = body.Metadata
+			instance.Metadata = mergeMetadata(instance.Metadata, changes)
 			gm.allocations++
 			response := *instance
 			if gm.responseStatus != 0 {
@@ -205,41 +212,52 @@ func (gm *ApplicationInstanceController) List(c *gin.Context) {
 			return
 		}
 	}
-	offset := 0
-	if value := c.GetHeader("PAGE-TOKEN"); value != "" {
-		var err error
-		offset, err = strconv.Atoi(value)
-		if err != nil || offset < 0 {
-			c.JSON(400, gin.H{"error": "invalid cursor"})
-			return
-		}
-	}
 	gm.mu.Lock()
 	defer gm.mu.Unlock()
 	gm.lists++
+	now := time.Now()
+	for token, page := range gm.pages {
+		if !page.expires.After(now) {
+			delete(gm.pages, token)
+		}
+	}
 	if gm.pageSize > 0 && limit > gm.pageSize {
 		limit = gm.pageSize
 	}
-	result := make([]*models.ApplicationInstance, 0)
-	for _, instance := range gm.sorted() {
-		match, err := matches(instance, c.Query("filters"))
-		if err != nil {
-			c.JSON(400, gin.H{"error": err.Error()})
+	var page mockPage
+	if token := c.GetHeader("PAGE-TOKEN"); token != "" {
+		var ok bool
+		page, ok = gm.pages[token]
+		if !ok {
+			c.JSON(400, gin.H{"error": "invalid or expired cursor"})
 			return
 		}
-		if match {
-			result = append(result, instance)
+	} else {
+		page = mockPage{results: make([]json.RawMessage, 0), expires: now.Add(time.Minute)}
+		for _, instance := range gm.sorted() {
+			match, err := matches(instance, c.Query("filters"))
+			if err != nil {
+				c.JSON(400, gin.H{"error": err.Error()})
+				return
+			}
+			if match {
+				data, err := json.Marshal(instance)
+				if err != nil {
+					c.JSON(500, gin.H{"error": "cannot snapshot instance"})
+					return
+				}
+				page.results = append(page.results, data)
+			}
 		}
 	}
-	if offset > len(result) {
-		c.JSON(400, gin.H{"error": "cursor out of range"})
-		return
+	end := min(limit, len(page.results))
+	if end < len(page.results) {
+		gm.nextPage++
+		token := fmt.Sprintf("page-%d", gm.nextPage)
+		gm.pages[token] = mockPage{results: page.results[end:], expires: page.expires}
+		c.Header("PAGE-TOKEN", token)
 	}
-	end := min(offset+limit, len(result))
-	if end < len(result) {
-		c.Header("PAGE-TOKEN", strconv.Itoa(end))
-	}
-	c.JSON(200, result[offset:end])
+	c.JSON(200, page.results[:end])
 }
 
 // Test controls exist only in this mock service, never in the provider adapter.
@@ -287,4 +305,79 @@ func (gm *ApplicationInstanceController) SetAllocationBehavior(c *gin.Context) {
 	gm.allocationDelay = time.Duration(body.DelayMs) * time.Millisecond
 	gm.responseStatus = body.ResponseStatus
 	c.JSON(200, gin.H{"ok": true})
+}
+
+type mockPage struct {
+	results []json.RawMessage
+	expires time.Time
+}
+
+func filterTerms(filter string) ([]string, error) {
+	var terms []string
+	quoted, escaped, start := false, false, 0
+	for i := 0; i < len(filter); i++ {
+		if escaped {
+			escaped = false
+			continue
+		}
+		if quoted && filter[i] == '\\' {
+			escaped = true
+			continue
+		}
+		if filter[i] == '"' {
+			quoted = !quoted
+			continue
+		}
+		if !quoted && strings.HasPrefix(filter[i:], " and ") {
+			terms = append(terms, filter[start:i])
+			i += 4
+			start = i + 1
+		}
+	}
+	if quoted || escaped {
+		return nil, fmt.Errorf("unterminated mock filter value")
+	}
+	return append(terms, filter[start:]), nil
+}
+
+func metadataChanges(changes []models.MetadataChange) (map[string]*string, error) {
+	if changes == nil {
+		return nil, fmt.Errorf("metadata array is required")
+	}
+	result := make(map[string]*string, len(changes))
+	for _, change := range changes {
+		if _, exists := result[change.Key]; change.Key == "" || exists {
+			return nil, fmt.Errorf("invalid metadata key")
+		}
+		var value *string
+		if err := json.Unmarshal(change.Value, &value); err != nil {
+			return nil, fmt.Errorf("metadata value must be a string or null")
+		}
+		result[change.Key] = value
+	}
+	return result, nil
+}
+
+func mergeMetadata(existing []models.KeyValue, changes map[string]*string) []models.KeyValue {
+	values := make(map[string]string, len(existing)+len(changes))
+	for _, pair := range existing {
+		values[pair.Key] = pair.Value
+	}
+	for key, value := range changes {
+		if value == nil {
+			delete(values, key)
+		} else {
+			values[key] = *value
+		}
+	}
+	keys := make([]string, 0, len(values))
+	for key := range values {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	result := make([]models.KeyValue, 0, len(keys))
+	for _, key := range keys {
+		result = append(result, models.KeyValue{Key: key, Value: values[key]})
+	}
+	return result
 }
