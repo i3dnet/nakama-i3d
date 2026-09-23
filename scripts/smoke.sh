@@ -5,8 +5,9 @@ project="i3d-smoke-$(date +%s)-$$"
 compose() { docker compose -p "$project" -f "$root/_infra/docker-compose.test.yml" -f "$root/_infra/docker-compose.smoke.yml" "$@"; }
 cleanup() {
   code=$?
-  if [ "$code" -ne 0 ]; then compose logs --no-color --tail=100 nakama mock_server; fi
-  compose down --volumes --remove-orphans
+  if [ "$code" -ne 0 ]; then compose logs --no-color --tail=100 nakama mock_server || true; fi
+  compose down --volumes --remove-orphans || printf 'Warning: smoke cleanup failed\n' >&2
+  exit "$code"
 }
 trap cleanup EXIT
 compose up --build --wait --wait-timeout 180 nakama

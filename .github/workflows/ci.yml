@@ -53,6 +53,7 @@ jobs:
         with:
           go-version: '1.24.1'
           cache-dependency-path: nakama_test_client/src/go.sum
+      - run: python3 scripts/check-smoke-cleanup.py
       - run: sh scripts/smoke.sh
 
   consumer:

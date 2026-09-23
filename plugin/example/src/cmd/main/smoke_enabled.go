@@ -172,23 +172,32 @@ func smokeStorageRace(ctx context.Context, nk runtime.NakamaModule) (string, err
 		return "", fmt.Errorf("concurrent Join admissions: %d + %d", a, b)
 	}
 	// Verify the actual runtime's indexed fields and cursor ordering.
-	for _, count := range []int{2, 0, 1} {
-		key := fmt.Sprintf("%s-%d", id, count)
-		value, _ := json.Marshal(&runtime.InstanceInfo{Id: key, Status: "ALLOCATED", CreateTime: time.Now().UTC(), PlayerCount: count, Metadata: map[string]any{"smoke": "sorting"}})
-		_, err := nk.StorageWrite(ctx, []*runtime.StorageWrite{{Collection: smokeCollection, Key: key, Value: string(value), Version: "*"}})
+	for _, session := range []struct {
+		suffix  string
+		count   int
+		created int64
+	}{
+		{"0-old", 0, 100}, {"1-new", 1, 400}, {"0-new", 0, 300}, {"1-old", 1, 200},
+	} {
+		key := id + "-" + session.suffix
+		value, err := json.Marshal(&runtime.InstanceInfo{Id: key, Status: "ALLOCATED", CreateTime: time.Unix(session.created, 0).UTC(), PlayerCount: session.count, Metadata: map[string]any{"smoke": "sorting"}})
+		if err != nil {
+			return "", err
+		}
+		_, err = nk.StorageWrite(ctx, []*runtime.StorageWrite{{Collection: smokeCollection, Key: key, Value: string(value), Version: "*"}})
 		if err != nil {
 			return "", err
 		}
 		defer nk.StorageDelete(context.WithoutCancel(ctx), []*runtime.StorageDelete{{Collection: smokeCollection, Key: key}})
 	}
 	cursor := ""
-	for count := 0; count < 3; count++ {
+	for page, suffix := range []string{"0-new", "0-old", "1-new", "1-old"} {
 		instances, next, err := nk.GetFleetManager().List(ctx, "+value.metadata.smoke:sorting", 1, cursor)
 		if err != nil {
 			return "", err
 		}
-		if len(instances) != 1 || instances[0].PlayerCount != count {
-			return "", fmt.Errorf("storage index sort/page %d: %v", count, instances)
+		if len(instances) != 1 || instances[0].Id != id+"-"+suffix {
+			return "", fmt.Errorf("storage index sort/page %d: want %s, got %v", page, suffix, instances)
 		}
 		cursor = next
 	}
