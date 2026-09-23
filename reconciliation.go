@@ -91,6 +91,11 @@ func (fm *I3dFleetManager) reconcileSnapshot(ctx context.Context, previous map[s
 	byID := map[string]*api.StorageObject{}
 	missing := map[string]string{}
 	createdDuringScan := map[string]bool{}
+	skew := fm.cfg.ReconcileClockSkew
+	if skew <= 0 {
+		skew = 5 * time.Second
+	}
+	cutoff := now.Add(-skew)
 	for _, obj := range snapshot {
 		byID[obj.Key] = obj
 		scoped, allocatedAt, err := storage.SnapshotInScope(obj, fm.cfg.ApplicationId, fm.cfg.FleetId)
@@ -99,8 +104,9 @@ func (fm *I3dFleetManager) reconcileSnapshot(ctx context.Context, previous map[s
 		}
 		// Storage pagination is not a transaction-wide snapshot. An allocation
 		// may be written after this pass starts but before its page is read.
-		if (!allocatedAt.IsZero() && !allocatedAt.Before(now)) ||
-			(obj.UpdateTime != nil && !obj.UpdateTime.AsTime().Before(now)) {
+		// Include the configured bound on inter-node clock skew and precision.
+		if (!allocatedAt.IsZero() && !allocatedAt.Before(cutoff)) ||
+			(obj.UpdateTime != nil && !obj.UpdateTime.AsTime().Before(cutoff)) {
 			createdDuringScan[obj.Key] = true
 			continue
 		}

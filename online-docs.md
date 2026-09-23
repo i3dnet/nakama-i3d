@@ -155,6 +155,7 @@ These settings use the same validation in runtime and process configuration:
 | `I3D_RECONCILE_INTERVAL` | `1m` | Poll interval; `0s` disables reconciliation |
 | `I3D_RECONCILE_TIMEOUT` | `30s` | Maximum duration of one reconciliation pass |
 | `I3D_RECONCILE_GRACE_PERIOD` | `2m` | Minimum allocation age before absence cleanup |
+| `I3D_RECONCILE_CLOCK_SKEW` | `5s` | Safety window covering relative node/database clock skew and timestamp precision; minimum 1s |
 
 Only reads retry transient network failures and HTTP 408, 429, 500, 502, 503 or 504, with cancellable backoff. Allocation, restart and writes execute once. A connection failure after sending an allocation can leave its outcome uncertain; inspect provider state before retrying. OAuth uses the complete configured token endpoint with a 30-second HTTP bound and shared refreshes. The timeout defaults are conservative bounds and still need validation against your real Arcus/fleet timings.
 
@@ -425,7 +426,7 @@ Coordinate these policies so the same session does not trigger multiple restart 
 
 Always use the connection details returned for the next allocation. Address or port assignments may change, and an application-instance ID can be reused for a later game session.
 
-The adapter takes a complete storage snapshot, then scans every provider page for the configured application/fleet. Failed or partial scans cannot establish absence. Records allocated or updated at or after the pass starts are excluded from that pass, including records encountered on later storage pages. Old records with known scope are removed only after two complete observations with unchanged storage versions; concurrent allocations and joins win conflicts. Legacy records with unknown scope are retained when absent. Provider-visible records can establish scope when refreshed. Reconciliation repairs storage only and never restarts an instance.
+The adapter takes a complete storage snapshot, then scans every provider page for the configured application/fleet. Failed or partial scans cannot establish absence. Records allocated or updated since the pass start minus I3D_RECONCILE_CLOCK_SKEW are excluded from that pass, including records encountered on later storage pages. Configure this window to cover the maximum relative clock skew between Nakama nodes and storage, plus timestamp precision; it does not protect against unbounded clock drift. Old records with known scope are removed only after two complete observations with unchanged storage versions; concurrent allocations and joins win conflicts. Legacy records with unknown scope are retained when absent. Provider-visible records can establish scope when refreshed. Reconciliation repairs storage only and never restarts an instance.
 
 Absence remains an eventual-consistency assumption: choose a grace period longer than observed provider propagation delays, or disable reconciliation if successful listings cannot reliably establish absence. Continue sending lifecycle reports promptly. Application overrides need a separately scoped reconciliation worker. Graceful shutdown stops background work; clients still need recovery after server crashes.
 

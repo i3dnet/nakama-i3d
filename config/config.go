@@ -24,6 +24,7 @@ type Config struct {
 	ProviderTimeout      time.Duration `json:"providerTimeout" env:"I3D_PROVIDER_TIMEOUT"`
 	ReconcileInterval    time.Duration `json:"reconcileInterval" env:"I3D_RECONCILE_INTERVAL"`
 	ReconcileTimeout     time.Duration `json:"reconcileTimeout" env:"I3D_RECONCILE_TIMEOUT"`
+	ReconcileClockSkew   time.Duration `json:"reconcileClockSkew" env:"I3D_RECONCILE_CLOCK_SKEW"`
 	ReconcileGracePeriod time.Duration `json:"reconcileGracePeriod" env:"I3D_RECONCILE_GRACE_PERIOD"`
 }
 type App struct {
@@ -64,7 +65,7 @@ func defaultConfig() *Config {
 		OneApi:            OneApi{BaseUrl: "https://api.i3d.net"},
 		Retry:             Retry{Attempts: 3, Delay: 1500 * time.Millisecond, MaxDelay: 7500 * time.Millisecond},
 		AllocationTimeout: 120 * time.Second, ProviderTimeout: 90 * time.Second,
-		ReconcileInterval: time.Minute, ReconcileTimeout: 30 * time.Second, ReconcileGracePeriod: 2 * time.Minute,
+		ReconcileInterval: time.Minute, ReconcileTimeout: 30 * time.Second, ReconcileGracePeriod: 2 * time.Minute, ReconcileClockSkew: 5 * time.Second,
 	}
 }
 func configError(err error) *runtime.Error { return runtime.NewError("configuration: "+err.Error(), 3) }
@@ -163,7 +164,7 @@ func applyEnv(cfg *Config, env map[string]string) error {
 		"I3D_RETRY_DELAY": &cfg.Delay, "I3D_RETRY_MAX_DELAY": &cfg.MaxDelay,
 		"I3D_ALLOCATION_TIMEOUT": &cfg.AllocationTimeout, "I3D_PROVIDER_TIMEOUT": &cfg.ProviderTimeout,
 		"I3D_RECONCILE_INTERVAL": &cfg.ReconcileInterval, "I3D_RECONCILE_TIMEOUT": &cfg.ReconcileTimeout,
-		"I3D_RECONCILE_GRACE_PERIOD": &cfg.ReconcileGracePeriod,
+		"I3D_RECONCILE_GRACE_PERIOD": &cfg.ReconcileGracePeriod, "I3D_RECONCILE_CLOCK_SKEW": &cfg.ReconcileClockSkew,
 	} {
 		if value, ok := env[key]; ok {
 			duration, err := time.ParseDuration(value)
@@ -213,6 +214,9 @@ func validate(cfg *Config) error {
 	}
 	if cfg.ReconcileInterval < 0 || cfg.ReconcileTimeout <= 0 || cfg.ReconcileGracePeriod < 0 {
 		problems = append(problems, fmt.Errorf("reconciliation interval/grace must be nonnegative and timeout must be positive"))
+	}
+	if cfg.ReconcileClockSkew < time.Second {
+		problems = append(problems, fmt.Errorf("I3D_RECONCILE_CLOCK_SKEW must be at least 1s"))
 	}
 	return errors.Join(problems...)
 }

@@ -16,6 +16,7 @@ Static-token mode uses I3D_ACCESS_TOKEN. Set I3D_USE_BEARER_AUTH=true for OAuth 
 | I3D_RECONCILE_INTERVAL | 1m | Nonnegative; 0s disables polling |
 | I3D_RECONCILE_TIMEOUT | 30s | Positive |
 | I3D_RECONCILE_GRACE_PERIOD | 2m | Nonnegative |
+| I3D_RECONCILE_CLOCK_SKEW | 5s | At least 1s; must cover relative clock skew plus timestamp precision |
 
 Runtime and process environment values use Go duration strings such as 250ms or 2m. Programmatic Config fields use time.Duration. JSON duration fields use integer nanoseconds; setting.json can omit them to retain defaults.
 

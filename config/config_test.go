@@ -97,7 +97,7 @@ func TestOAuthRuntimeAndProcessConfigAgree(t *testing.T) {
 
 func TestTimeoutAndReconciliationSettingsAgreeAcrossSources(t *testing.T) {
 	env := staticEnv()
-	for key, value := range map[string]string{"I3D_FLEET_ID": "456", "I3D_ALLOCATION_TIMEOUT": "2m", "I3D_PROVIDER_TIMEOUT": "45s", "I3D_RECONCILE_INTERVAL": "10s", "I3D_RECONCILE_TIMEOUT": "5s", "I3D_RECONCILE_GRACE_PERIOD": "20s"} {
+	for key, value := range map[string]string{"I3D_FLEET_ID": "456", "I3D_ALLOCATION_TIMEOUT": "17s", "I3D_PROVIDER_TIMEOUT": "45s", "I3D_RECONCILE_INTERVAL": "10s", "I3D_RECONCILE_TIMEOUT": "5s", "I3D_RECONCILE_GRACE_PERIOD": "20s", "I3D_RECONCILE_CLOCK_SKEW": "10s"} {
 		env[key] = value
 	}
 	isolateProcessConfig(t, env)
@@ -107,6 +107,8 @@ func TestTimeoutAndReconciliationSettingsAgreeAcrossSources(t *testing.T) {
 	require.Nil(t, err)
 	require.Equal(t, a, b)
 	require.Equal(t, "456", a.FleetId)
+	require.Equal(t, 17*time.Second, a.AllocationTimeout)
+	require.Equal(t, 10*time.Second, a.ReconcileClockSkew)
 	require.Equal(t, 45*time.Second, a.ProviderTimeout)
 	require.Equal(t, 10*time.Second, a.ReconcileInterval)
 	require.Equal(t, 5*time.Second, a.ReconcileTimeout)
@@ -140,4 +142,13 @@ func TestDotEnvAndWorkingDirectoryResolution(t *testing.T) {
 	cfg, err = NewConfig()
 	require.Nil(t, err)
 	require.Equal(t, "https://process.example", cfg.BaseUrl)
+}
+
+func TestRuntimeRejectsInsufficientReconciliationClockWindow(t *testing.T) {
+	for _, value := range []string{"0s", "500ms", "invalid"} {
+		env := staticEnv()
+		env["I3D_RECONCILE_CLOCK_SKEW"] = value
+		_, err := runtimeConfig(env)
+		require.NotNil(t, err, value)
+	}
 }

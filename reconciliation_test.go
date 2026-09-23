@@ -2,10 +2,12 @@ package fleetmanager
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/heroiclabs/nakama-common/api"
 	"github.com/heroiclabs/nakama-common/runtime"
+	"github.com/i3dnet/nakama-i3d/config"
 	"github.com/i3dnet/nakama-i3d/internal/clients"
 	"github.com/i3dnet/nakama-i3d/internal/storage"
 	"github.com/stretchr/testify/require"
@@ -270,4 +272,44 @@ func TestReconciliationExcludesRecordUpdatedDuringStorageScan(t *testing.T) {
 	got, err := fm.storage.GetGameSessionFromStorage(context.Background(), "instance")
 	require.NoError(t, err)
 	require.Equal(t, "new-game", got.Metadata["map"])
+}
+
+func TestReconciliationProtectsWritesWithBoundedClockSkew(t *testing.T) {
+	for _, kind := range []string{"allocation", "storage-update"} {
+		t.Run(kind, func(t *testing.T) {
+			fm, nk, client := sessionFixture(t, 0, 4)
+			ctx := context.WithValue(context.Background(), runtime.RUNTIME_CTX_ENV, map[string]string{"I3D_APPLICATION_ID": "123", "I3D_ACCESS_TOKEN": "test-only", "I3D_RECONCILE_CLOCK_SKEW": "10s"})
+			cfg, configErr := config.NewConfigFromRuntime(ctx)
+			require.Nil(t, configErr)
+			fm.cfg = cfg
+			base := fm.storage
+			if kind == "allocation" {
+				fm.storage = allocationDuringSnapshot{FleetManagerStorage: base, create: func() {
+					require.NoError(t, base.CreateGameSession(ctx, &runtime.InstanceInfo{Id: "instance", Status: "ALLOCATED", CreateTime: time.Unix(200, 0), Metadata: map[string]any{MaxPlayers: 4, "map": "new-game"}}, "123", nil))
+				}}
+			} else {
+				require.NoError(t, base.CreateGameSession(ctx, &runtime.InstanceInfo{Id: "instance", Status: "ALLOCATED", CreateTime: time.Unix(200, 0), Metadata: map[string]any{MaxPlayers: 4, "map": "new-game"}}, "123", nil))
+				objects, err := nk.StorageRead(ctx, []*runtime.StorageRead{{Collection: storage.StorageI3dInstancesCollection, Key: "instance"}})
+				require.NoError(t, err)
+				require.Len(t, objects, 1)
+				var value map[string]any
+				require.NoError(t, json.Unmarshal([]byte(objects[0].Value), &value))
+				value["_i3d"].(map[string]any)["allocated_at"] = time.Now().Add(-time.Hour).UTC().Format(time.RFC3339Nano)
+				encoded, err := json.Marshal(value)
+				require.NoError(t, err)
+				_, err = nk.StorageWrite(ctx, []*runtime.StorageWrite{{Collection: storage.StorageI3dInstancesCollection, Key: "instance", Version: objects[0].Version, Value: string(encoded)}})
+				require.NoError(t, err)
+				fm.storage = recentlyWrittenSnapshot{base}
+			}
+			client.EXPECT().ListApplicationInstances(gomock.Any(), gomock.Any(), 100, "").Return(&clients.ApplicationInstanceListResponse{Instances: []*runtime.InstanceInfo{{Id: "instance", Status: "ALLOCATED", CreateTime: time.Unix(100, 0), Metadata: map[string]any{"map": "old-game"}}}}, nil)
+			_, err := fm.reconcileOnce(ctx, nil, time.Now().Add(7*time.Second))
+			require.NoError(t, err)
+			got, err := base.GetGameSessionFromStorage(ctx, "instance")
+			require.NoError(t, err)
+			require.Equal(t, "new-game", got.Metadata["map"])
+			capacity, err := getMaxPlayers(got)
+			require.NoError(t, err)
+			require.Equal(t, 4, capacity)
+		})
+	}
 }
