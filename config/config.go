@@ -112,6 +112,7 @@ func NewConfig() (*Config, *runtime.Error) {
 	if _, err = os.Stat(envFile); err == nil {
 		env, err = godotenv.Read(envFile)
 		if err != nil {
+			// Do not wrap godotenv errors: they can echo credential values.
 			return nil, configError(fmt.Errorf("invalid .env file"))
 		}
 	} else if !errors.Is(err, os.ErrNotExist) {

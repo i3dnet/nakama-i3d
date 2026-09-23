@@ -35,3 +35,5 @@ Example setting.json (keep real credentials outside version control):
 These settings configure the adapter, not Nakama's server HTTP key. Configure runtime.http_key separately for trusted headless-server lifecycle RPCs. Never distribute either credential to players.
 
 Provider HTTP calls are bounded by I3D_PROVIDER_TIMEOUT. OAuth uses the configured endpoint with a 30-second HTTP timeout and the calling context; concurrent callers share an in-flight refresh. Only reads retry transient network errors and HTTP 408, 429, 500, 502, 503 or 504. Backoff observes cancellation. Allocation, restart and metadata writes run once: retrying an ambiguous mutation could allocate another server or repeat a restart. Reconcile provider state before retrying a failed allocation at the application level.
+
+Malformed .env diagnostics intentionally omit the raw parser error because it can contain credential values. Inspect the file locally when startup reports invalid .env file; do not paste its contents into shared logs or review comments.

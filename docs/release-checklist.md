@@ -1,6 +1,6 @@
-# Release candidate checklist — 22 September 2026
+# Release candidate checklist — 23 September 2026
 
-Implementation candidate: f9673c4415288fd3c740da609178fcdf365105ce, publicly resolved as v0.0.0-20260922154340-f9673c441528. Main was reviewed at f26ac9d83ebb1a70f492db70b69eacf842403cb6. The deployed artifact is unknown.
+Implementation candidate: 3ce03390a9db2b6573a4213ede9c330f79b43f2d, publicly resolved as v0.0.0-20260923073419-3ce03390a9db. Main was reviewed at f26ac9d83ebb1a70f492db70b69eacf842403cb6. The deployed artifact is unknown.
 
 ## Review stack
 
@@ -23,6 +23,18 @@ Merge in order after review; each PR is based on the preceding branch. Do not re
 | [#20](https://github.com/i3dnet/nakama-i3d/pull/20) | Real two-client lifecycle/native storage smoke |
 | [#23](https://github.com/i3dnet/nakama-i3d/pull/23) | This guide, compiled snippets and release evidence |
 | [#24](https://github.com/i3dnet/nakama-i3d/pull/24) | Preserve allocations and storage updates made during reconciliation pagination |
+| [#25](https://github.com/i3dnet/nakama-i3d/pull/25) | Verify the public Go resolver and checksums |
+| [#26](https://github.com/i3dnet/nakama-i3d/pull/26) | Copy metadata without numeric loss |
+| [#27](https://github.com/i3dnet/nakama-i3d/pull/27) | Validate provider identity, endpoints and truncated reads |
+| [#28](https://github.com/i3dnet/nakama-i3d/pull/28) | Atomic provider pages and generation-safe cleanup |
+| [#29](https://github.com/i3dnet/nakama-i3d/pull/29) | Metadata map keys, opaque state and unsupported references |
+| [#30](https://github.com/i3dnet/nakama-i3d/pull/30) | Bounded clock-skew protection and accurate cleanup wording |
+| [#31](https://github.com/i3dnet/nakama-i3d/pull/31) | Mock filter, allocation-metadata and cursor contracts |
+| [#32](https://github.com/i3dnet/nakama-i3d/pull/32) | Defensive skew minimum for direct configuration |
+| [#33](https://github.com/i3dnet/nakama-i3d/pull/33) | Path-prefix telemetry and terminal metric coverage |
+| [#34](https://github.com/i3dnet/nakama-i3d/pull/34) | Secondary index ordering and resilient smoke cleanup |
+
+The final evidence PR adds the archive newline guard, dotenv redaction regression and [Copilot finding-by-finding resolutions](reviews/2026-09-23-copilot-resolution.md).
 
 ## Completed candidate evidence
 
@@ -30,10 +42,10 @@ Merge in order after review; each PR is based on the preceding branch. Do not re
 - [x] Actual plugin build/load on Nakama 3.41.0/common 1.48.0/Go 1.27.1/protobuf 1.36.12: Linux ARM64 locally and Linux AMD64 in CI.
 - [x] Two-client lifecycle smoke on both architectures: one matchmaking allocation, metadata, persisted storage before notifications, correct IP/port, trusted updates/restarts and rejection of player lifecycle RPCs.
 - [x] Native PostgreSQL-backed StorageWriteRetry conflict, concurrent Join admission and rejected stale delete.
-- [x] Actual storage-index sorting and continuation pages. Sort fields use value.player_count and value.create_time.
+- [x] Actual storage-index sorting, tied player counts with descending creation times, and continuation pages. Sort fields use value.player_count and value.create_time.
 - [x] Provider multi-page reconciliation, missed termination without restart, invalid readiness and bounded timeout without allocation retry.
-- [x] Unit regression coverage for callback lifetime/one terminal callback, failed provider pages, Create/Join/reallocation races, storage pagination boundaries, OAuth refresh and cancellation.
-- [x] Fresh public Go module cache, no clone/replace/private GitLab credentials: scripts/check-install.sh at f9673c4 resolves the pseudo-version above and compiles the real example.
+- [x] Unit regression coverage for callback lifetime/one terminal callback, failed provider pages, Create/Join/reallocation races, storage pagination boundaries and bounded clock skew, OAuth refresh and cancellation.
+- [x] Fresh public Go module cache, no clone/replace/private GitLab credentials: scripts/check-install.sh at 3ce0339 resolves the pseudo-version above and compiles the real example.
 - [x] Partner guide Go files and filter block compiled/tested in an isolated consumer through scripts/check-docs.py. CI recompiles the actual Markdown blocks.
 - [x] Documented unwrapped JSON lifecycle payloads executed against Nakama's HTTP-key endpoint.
 - [x] Ordinary plugin builds exclude the i3d_smoke test RPCs.

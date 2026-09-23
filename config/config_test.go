@@ -3,6 +3,7 @@ package config
 import (
 	"context"
 	"github.com/heroiclabs/nakama-common/runtime"
+	"github.com/joho/godotenv"
 	"github.com/stretchr/testify/require"
 	"os"
 	"path/filepath"
@@ -151,4 +152,18 @@ func TestRuntimeRejectsInsufficientReconciliationClockWindow(t *testing.T) {
 		_, err := runtimeConfig(env)
 		require.NotNil(t, err, value)
 	}
+}
+
+func TestMalformedDotEnvDoesNotExposeCredentialText(t *testing.T) {
+	isolateProcessConfig(t, nil)
+	path := filepath.Join(os.Getenv("PROJECT_ROOT"), ".env")
+	const secret = "fixture-secret-not-for-logs"
+	require.NoError(t, os.WriteFile(path, []byte("I3D_CLIENT_SECRET=\""+secret+"\n"), 0600))
+	// The parser echoes malformed values, so wrapping its error would leak them.
+	_, rawErr := godotenv.Read(path)
+	require.ErrorContains(t, rawErr, secret)
+	_, err := NewConfig()
+	require.NotNil(t, err)
+	require.Contains(t, err.Message, "invalid .env file")
+	require.NotContains(t, err.Message, secret)
 }
