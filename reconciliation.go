@@ -92,7 +92,7 @@ func (fm *I3dFleetManager) reconcileSnapshot(ctx context.Context, previous map[s
 	missing := map[string]string{}
 	createdDuringScan := map[string]bool{}
 	skew := fm.cfg.ReconcileClockSkew
-	if skew <= 0 {
+	if skew < time.Second {
 		skew = 5 * time.Second
 	}
 	cutoff := now.Add(-skew)

@@ -313,3 +313,20 @@ func TestReconciliationProtectsWritesWithBoundedClockSkew(t *testing.T) {
 		})
 	}
 }
+
+func TestProgrammaticClockSkewCannotBypassMinimum(t *testing.T) {
+	fm, _, client := sessionFixture(t, 0, 4)
+	fm.cfg.ApplicationId = "123"
+	fm.cfg.ReconcileClockSkew = 500 * time.Millisecond
+	require.NoError(t, fm.storage.CreateGameSession(context.Background(), &runtime.InstanceInfo{
+		Id: "instance", Status: "ALLOCATED", CreateTime: time.Unix(200, 0), Metadata: map[string]any{MaxPlayers: 4, "map": "new-game"},
+	}, "123", nil))
+	client.EXPECT().ListApplicationInstances(gomock.Any(), gomock.Any(), 100, "").Return(&clients.ApplicationInstanceListResponse{
+		Instances: []*runtime.InstanceInfo{{Id: "instance", Status: "ALLOCATED", CreateTime: time.Unix(100, 0), Metadata: map[string]any{"map": "old-game"}}},
+	}, nil)
+	_, err := fm.reconcileOnce(context.Background(), nil, time.Now().Add(750*time.Millisecond))
+	require.NoError(t, err)
+	got, err := fm.storage.GetGameSessionFromStorage(context.Background(), "instance")
+	require.NoError(t, err)
+	require.Equal(t, "new-game", got.Metadata["map"])
+}
