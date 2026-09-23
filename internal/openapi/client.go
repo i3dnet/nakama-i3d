@@ -337,16 +337,24 @@ func (c *APIClient) callAPI(request *http.Request) (*http.Response, error) {
 // The generated client already contained custom OpenTelemetry instrumentation.
 // Keep this narrow customization when regenerating: no raw URLs, headers or bodies.
 func telemetryRoute(request *http.Request) string {
+	// Deployment URLs may contain a path prefix. Identify only the fixed API
+	// suffix; neither that prefix nor concrete IDs are emitted to telemetry.
+	const namespace = "/v3/applicationInstance"
 	path := request.URL.Path
+	start := strings.LastIndex(path, namespace)
+	if start < 0 {
+		return "/other"
+	}
+	parts := strings.Split(strings.TrimSuffix(path[start:], "/"), "/")
 	switch {
-	case path == "/v3/applicationInstance" || path == "/v3/applicationInstance/":
-		return "/v3/applicationInstance"
-	case strings.HasPrefix(path, "/v3/applicationInstance/game/") && strings.HasSuffix(path, "/empty/allocate"):
-		return "/v3/applicationInstance/game/{applicationId}/empty/allocate"
-	case strings.HasPrefix(path, "/v3/applicationInstance/") && strings.HasSuffix(path, "/restart"):
-		return "/v3/applicationInstance/{instanceId}/restart"
-	case strings.HasPrefix(path, "/v3/applicationInstance/") && strings.Count(strings.Trim(path, "/"), "/") == 2:
-		return "/v3/applicationInstance/{instanceId}"
+	case len(parts) == 3 && parts[2] == "applicationInstance":
+		return namespace
+	case len(parts) == 4 && parts[2] == "applicationInstance" && parts[3] != "":
+		return namespace + "/{instanceId}"
+	case len(parts) == 5 && parts[2] == "applicationInstance" && parts[3] != "" && parts[4] == "restart":
+		return namespace + "/{instanceId}/restart"
+	case len(parts) == 7 && parts[2] == "applicationInstance" && parts[3] == "game" && parts[4] != "" && parts[5] == "empty" && parts[6] == "allocate":
+		return namespace + "/game/{applicationId}/empty/allocate"
 	default:
 		return "/other"
 	}

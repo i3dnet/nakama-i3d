@@ -88,3 +88,38 @@ func TestReconciliationMetricsRecordOutcomes(t *testing.T) {
 		})
 	}
 }
+
+func TestContextErrorMetricsPreserveClassification(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		err  error
+	}{
+		{"timeout", context.DeadlineExceeded}, {"canceled", context.Canceled},
+	} {
+		for _, wrapped := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/wrapped=%v", tc.name, wrapped), func(t *testing.T) {
+				err := tc.err
+				if wrapped {
+					err = fmt.Errorf("provider operation: %w", err)
+				}
+				fm, client, _, _, _ := createFixture(t)
+				allocationMetrics := &metricRecorder{}
+				fm.nk = allocationMetrics
+				client.EXPECT().AllocateApplicationInstance(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, err)
+				done := make(chan createResult, 1)
+				_, createErr := fm.Create(context.Background(), 2, nil, nil, nil, resultCallback(done))
+				require.NoError(t, createErr)
+				require.ErrorIs(t, awaitCreate(t, done).err, tc.err)
+				allocationMetrics.requireResult(t, "allocation", tc.name)
+
+				reconciler, _, provider := sessionFixture(t, 0, 2)
+				reconciliationMetrics := &metricRecorder{}
+				reconciler.nk = reconciliationMetrics
+				provider.EXPECT().ListApplicationInstances(gomock.Any(), gomock.Any(), 100, "").Return(nil, err)
+				_, reconcileErr := reconciler.reconcileOnce(context.Background(), nil, time.Now())
+				require.ErrorIs(t, reconcileErr, tc.err)
+				reconciliationMetrics.requireResult(t, "reconciliation", tc.name)
+			})
+		}
+	}
+}

@@ -41,3 +41,49 @@ func TestProviderTelemetryDoesNotLogBodiesOrCredentials(t *testing.T) {
 		}
 	}
 }
+
+func TestTelemetryRoutesWithDeploymentPrefixes(t *testing.T) {
+	for _, prefix := range []string{"", "/proxy/private-tenant", "/v3/applicationInstance/proxy"} {
+		for _, tc := range []struct{ path, route string }{
+			{"/v3/applicationInstance", "/v3/applicationInstance"},
+			{"/v3/applicationInstance/", "/v3/applicationInstance"},
+			{"/v3/applicationInstance/private-instance", "/v3/applicationInstance/{instanceId}"},
+			{"/v3/applicationInstance/private-instance/restart", "/v3/applicationInstance/{instanceId}/restart"},
+			{"/v3/applicationInstance/game/private-app/empty/allocate", "/v3/applicationInstance/game/{applicationId}/empty/allocate"},
+			{"/v3/applicationInstance/unknown/nested/restart", "/other"},
+			{"/v3/applicationInstance/game/extra/private-app/empty/allocate", "/other"},
+			{"/v3/applicationInstances", "/other"},
+		} {
+			t.Run(prefix+tc.path, func(t *testing.T) {
+				var captured bytes.Buffer
+				old := log.Writer()
+				log.SetOutput(&captured)
+				defer log.SetOutput(old)
+				cfg := NewConfiguration()
+				cfg.Debug = true
+				cfg.Servers = ServerConfigurations{{URL: "https://example.test" + prefix}}
+				cfg.HTTPClient = &http.Client{Transport: responseTransport(func(r *http.Request) (*http.Response, error) {
+					return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader("[]")), Header: make(http.Header), Request: r}, nil
+				})}
+				request, err := http.NewRequest("GET", "https://example.test"+prefix+tc.path+"?filters=private-filter", nil)
+				if err != nil {
+					t.Fatal(err)
+				}
+				response, err := NewAPIClient(cfg).callAPI(request)
+				if err != nil {
+					t.Fatal(err)
+				}
+				response.Body.Close()
+				expected := "provider request: GET " + tc.route + "\n"
+				if !strings.Contains(captured.String(), expected) {
+					t.Fatalf("want %q, got %q", expected, captured.String())
+				}
+				for _, secret := range []string{"private-tenant", "private-instance", "private-app", "private-filter"} {
+					if strings.Contains(captured.String(), secret) {
+						t.Errorf("logged %s", secret)
+					}
+				}
+			})
+		}
+	}
+}
