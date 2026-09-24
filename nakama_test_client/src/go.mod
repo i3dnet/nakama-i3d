@@ -1,6 +1,6 @@
 module gitlab.com/i3Dnet/dev/game/projects/plugins/nakama/nakama-test-client
 
-go 1.25.0
+go 1.27.1
 
 require (
 	github.com/ascii8/nakama-go v0.8.7
