@@ -296,7 +296,7 @@ func (gm *ApplicationInstanceController) SetAllocationBehavior(c *gin.Context) {
 	if !decode(c, &body) {
 		return
 	}
-	if body.DelayMs < 0 || body.DelayMs > 2000 || (body.ResponseStatus != 0 && body.ResponseStatus != 4 && body.ResponseStatus != 5) {
+	if body.DelayMs < 0 || body.DelayMs > 2000 || (body.ResponseStatus != 0 && body.ResponseStatus != 4 && body.ResponseStatus != 5 && body.ResponseStatus != 6) {
 		c.JSON(400, gin.H{"error": "invalid test behavior"})
 		return
 	}

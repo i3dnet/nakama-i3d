@@ -401,6 +401,7 @@ func (suite *FleetManagerSuite) TestCreate_GivenUpdatingStorageFails_ShouldFail(
 	defer ctrl.Finish()
 
 	client.EXPECT().AllocateApplicationInstance(gomock.Any(), metaData, gomock.Any()).Return(expected, nil).Times(1)
+	client.EXPECT().RestartApplicationInstance(gomock.Any(), expected.Id).Return(nil).Times(1)
 	stored := make(chan struct{})
 	storageService.EXPECT().CreateGameSession(gomock.Any(), expected, suite.cfg.ApplicationId, userIds).DoAndReturn(func(context.Context, *runtime.InstanceInfo, string, []string) error {
 		close(stored)
@@ -420,7 +421,9 @@ func (suite *FleetManagerSuite) TestCreate_GivenUpdatingStorageFails_ShouldFail(
 
 	var latency []runtime.FleetUserLatencies
 	// act
-	_, err := suite.newTestFleetManager(client, storageService).Create(suite.ctx, maxPlayerCount, userIds, latency, metaData, callback)
+	fm := suite.newTestFleetManager(client, storageService)
+	defer fm.operations.Wait()
+	_, err := fm.Create(suite.ctx, maxPlayerCount, userIds, latency, metaData, callback)
 
 	// assert
 	suite.NoError(err)

@@ -11,7 +11,8 @@ Static-token mode uses I3D_ACCESS_TOKEN. Set I3D_USE_BEARER_AUTH=true for OAuth 
 | I3D_RETRY_ATTEMPTS | 3 | 1–10 |
 | I3D_RETRY_DELAY | 1.5s | Nonnegative |
 | I3D_RETRY_MAX_DELAY | 7.5s | At least the initial delay |
-| I3D_ALLOCATION_TIMEOUT | 120s | Positive |
+| I3D_ALLOCATION_TIMEOUT | 120s | Positive; provider allocation stage |
+| I3D_ALLOCATION_FINALIZE_TIMEOUT | 30s | Positive; fresh bound for persistence and each cleanup attempt |
 | I3D_PROVIDER_TIMEOUT | 90s | Positive |
 | I3D_RECONCILE_INTERVAL | 1m | Nonnegative; 0s disables polling |
 | I3D_RECONCILE_TIMEOUT | 30s | Positive |
@@ -37,3 +38,7 @@ These settings configure the adapter, not Nakama's server HTTP key. Configure ru
 Provider HTTP calls are bounded by I3D_PROVIDER_TIMEOUT. OAuth uses the configured endpoint with a 30-second HTTP timeout and the calling context; concurrent callers share an in-flight refresh. Only reads retry transient network errors and HTTP 408, 429, 500, 502, 503 or 504. Backoff observes cancellation. Allocation, restart and metadata writes run once: retrying an ambiguous mutation could allocate another server or repeat a restart. Reconcile provider state before retrying a failed allocation at the application level.
 
 Malformed .env diagnostics intentionally omit the raw parser error because it can contain credential values. Inspect the file locally when startup reports invalid .env file; do not paste its contents into shared logs or review comments.
+
+Successful allocation gets a fresh I3D_ALLOCATION_FINALIZE_TIMEOUT budget to persist its session before the success callback. A result already published by either stage wins over simultaneous deadline expiry. If a stage times out before publishing, the callback reports failure once; any later known allocation is restarted once when that worker returns. Storage failure also triggers one restart. Cleanup has a fresh bounded context, preserves the original callback error, and logs a failed restart for operator follow-up. Ambiguous responses without a confirmed allocated instance ID cannot be automatically reclaimed. Cache cleanup remains conditional reconciliation, so a newer session generation is not blindly deleted.
+
+A programmatic Config with AllocationTimeout zero retains the 120s fallback and logs a warning once per manager naming I3D_ALLOCATION_TIMEOUT. The config loaders set the documented defaults and reject explicit nonpositive durations. Each phase remains bounded by manager shutdown, while best-effort cleanup may run within the shutdown grace period. A dependency that ignores cancellation can outlive its callback; its eventual result is still reclaimed while the process is alive.

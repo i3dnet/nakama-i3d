@@ -150,7 +150,8 @@ These settings use the same validation in runtime and process configuration:
 | `I3D_RETRY_ATTEMPTS` | `3` | Maximum read attempts, including the initial request (1–10) |
 | `I3D_RETRY_DELAY` | `1500ms` | Initial delay before a retry |
 | `I3D_RETRY_MAX_DELAY` | `7500ms` | Maximum backoff delay |
-| `I3D_ALLOCATION_TIMEOUT` | `120s` | Accepted asynchronous allocation lifetime |
+| `I3D_ALLOCATION_TIMEOUT` | `120s` | Provider allocation stage |
+| `I3D_ALLOCATION_FINALIZE_TIMEOUT` | `30s` | Fresh persistence budget and fresh budget for each cleanup attempt |
 | `I3D_PROVIDER_TIMEOUT` | `90s` | Timeout for each provider HTTP request |
 | `I3D_RECONCILE_INTERVAL` | `1m` | Poll interval; `0s` disables reconciliation |
 | `I3D_RECONCILE_TIMEOUT` | `30s` | Maximum duration of one reconciliation pass |
@@ -338,7 +339,7 @@ func MatchmakerMatched(
 
 The first return from `Create` is provider-specific request metadata; this example does not need it. A successful return means the asynchronous request was accepted. The callback supplies its final result.
 
-Accepted allocation work survives normal hook-context cancellation and ends at its deadline or graceful shutdown. Already-canceled calls are rejected before acceptance. Storage is committed before success; if storage fails after provider allocation, the callback reports an error without automatically restarting the server. Callbacks are local to their owning process and do not survive a crash or route between nodes. The separate context in the example handles notification delivery only.
+Accepted allocation work survives normal hook-context cancellation. Already-canceled calls are rejected before acceptance. Provider allocation and storage persistence have separate deadlines and observe manager shutdown. Storage is committed before success, and a published result wins over simultaneous deadline expiry. A failed or late result with a confirmed allocation ID triggers one best-effort restart with a fresh bounded context. Cleanup failures are logged; ambiguous responses without an allocated instance ID require operator reconciliation. A timed-out dependency that ignores cancellation is reclaimed when it eventually returns, while the process remains alive. Cleanup never changes an already delivered callback outcome or blindly deletes a newer cached session. A programmatic Config with a zero AllocationTimeout logs the 120s fallback once per manager. Callbacks are local to their owning process and do not survive a crash or route between nodes. The separate context in the example handles notification delivery only.
 
 On the client, register your notification handler before submitting a matchmaking ticket:
 

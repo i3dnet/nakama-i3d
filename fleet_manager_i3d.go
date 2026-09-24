@@ -17,18 +17,19 @@ import (
 var _ runtime.FleetManagerInitializer = (*I3dFleetManager)(nil)
 
 type I3dFleetManager struct {
-	ctx             context.Context
-	cancel          context.CancelFunc
-	lifecycleMu     sync.Mutex
-	stopping        bool
-	initialized     bool
-	operations      sync.WaitGroup
-	client          clients.ApplicationInstance
-	logger          runtime.Logger
-	nk              runtime.NakamaModule
-	cfg             *config.Config
-	callbackHandler runtime.FmCallbackHandler
-	storage         storage.FleetManagerStorage
+	ctx                      context.Context
+	cancel                   context.CancelFunc
+	lifecycleMu              sync.Mutex
+	stopping                 bool
+	initialized              bool
+	operations               sync.WaitGroup
+	allocationTimeoutWarning sync.Once
+	client                   clients.ApplicationInstance
+	logger                   runtime.Logger
+	nk                       runtime.NakamaModule
+	cfg                      *config.Config
+	callbackHandler          runtime.FmCallbackHandler
+	storage                  storage.FleetManagerStorage
 }
 
 // NewI3dFleetManager creates a new I3dFleetManager instance from the given context, logger, initializer, nakama module, and configuration
@@ -215,24 +216,19 @@ func (fm *I3dFleetManager) Create(ctx context.Context, maxPlayers int, userIds [
 	timeout := fm.cfg.AllocationTimeout
 	if timeout == 0 {
 		timeout = 120 * time.Second
+		fm.allocationTimeoutWarning.Do(func() {
+			fm.logger.Warn("I3D_ALLOCATION_TIMEOUT is unset in Config; using 120s")
+		})
 	}
-	operationCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), timeout)
-	stopShutdown := context.AfterFunc(fm.ctx, cancel)
 	id := ""
 	if callback != nil {
 		id = fm.callbackHandler.GenerateCallbackId()
 		fm.callbackHandler.SetCallback(id, callback)
 	}
-	fm.operations.Add(2)
+	fm.operations.Add(1)
 	fm.lifecycleMu.Unlock()
 
-	type outcome struct {
-		instance *runtime.InstanceInfo
-		sessions []*runtime.SessionInfo
-		err      error
-	}
 	startedAt := time.Now()
-	result := make(chan outcome, 1)
 	go func() {
 		defer fm.operations.Done()
 		filters := GetFilters(requestMetadata)
@@ -244,12 +240,16 @@ func (fm *I3dFleetManager) Create(ctx context.Context, maxPlayers int, userIds [
 				filters = scope
 			}
 		}
-		instance, err := fm.client.AllocateApplicationInstance(operationCtx, requestMetadata, filters)
-		if err == nil && instance == nil {
-			err = errors.New("allocation returned no instance")
-		}
+		completed := fm.runAllocationStage(ctx, timeout, func(stageCtx context.Context) allocationOutcome {
+			instance, err := fm.client.AllocateApplicationInstance(stageCtx, requestMetadata, filters)
+			if err == nil && (instance == nil || strings.TrimSpace(instance.Id) == "") {
+				err = errors.New("allocation returned no instance identity")
+			}
+			return allocationOutcome{instance, err}
+		})
 		var sessions []*runtime.SessionInfo
-		if err == nil {
+		if completed.err == nil {
+			instance := completed.instance
 			if instance.Metadata == nil {
 				instance.Metadata = make(map[string]any)
 			}
@@ -258,31 +258,21 @@ func (fm *I3dFleetManager) Create(ctx context.Context, maxPlayers int, userIds [
 			if fm.cfg.FleetId != "" {
 				instance.Metadata["i3d_fleet_id"] = fm.cfg.FleetId
 			}
-			for _, userId := range userIds {
-				sessions = append(sessions, &runtime.SessionInfo{UserId: userId})
+			for _, userID := range userIds {
+				sessions = append(sessions, &runtime.SessionInfo{UserId: userID})
 			}
-			if err = operationCtx.Err(); err == nil {
-				applicationID := fm.cfg.ApplicationId
-				if override, ok := requestMetadata[clients.ApplicationId]; ok {
-					applicationID = fmt.Sprint(override)
-				}
-				err = fm.storage.CreateGameSession(operationCtx, instance, applicationID, userIds)
+			applicationID := fm.cfg.ApplicationId
+			if override, ok := requestMetadata[clients.ApplicationId]; ok {
+				applicationID = fmt.Sprint(override)
 			}
+			completed = fm.runAllocationStage(ctx, fm.allocationFinalizeTimeout(), func(stageCtx context.Context) allocationOutcome {
+				return allocationOutcome{instance, fm.storage.CreateGameSession(stageCtx, instance, applicationID, userIds)}
+			})
 		}
-		result <- outcome{instance, sessions, err}
-	}()
-	go func() {
-		defer fm.operations.Done()
-		defer cancel()
-		defer stopShutdown()
-		var completed outcome
-		select {
-		case completed = <-result:
-			if operationCtx.Err() != nil {
-				completed.err = operationCtx.Err()
-			}
-		case <-operationCtx.Done():
-			completed.err = operationCtx.Err()
+		// The worker owns late results; this coordinator owns only results handed
+		// over before a stage was abandoned. Exactly one owner attempts cleanup.
+		if completed.err != nil {
+			defer fm.reclaimAllocation(ctx, completed.instance)
 		}
 		fm.recordOperation("allocation", startedAt, completed.err)
 		if callback == nil {
@@ -295,7 +285,7 @@ func (fm *I3dFleetManager) Create(ctx context.Context, maxPlayers int, userIds [
 			fm.callbackHandler.InvokeCallback(id, runtime.CreateError, nil, nil, nil, completed.err)
 			return
 		}
-		fm.callbackHandler.InvokeCallback(id, runtime.CreateSuccess, completed.instance, completed.sessions, requestMetadata, nil)
+		fm.callbackHandler.InvokeCallback(id, runtime.CreateSuccess, completed.instance, sessions, requestMetadata, nil)
 	}()
 	return nil, nil
 }

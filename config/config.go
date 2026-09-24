@@ -18,14 +18,15 @@ import (
 
 type Config struct {
 	App
-	OneApi               `json:"oneApi"`
-	Retry                `json:"retry"`
-	AllocationTimeout    time.Duration `json:"allocationTimeout" env:"I3D_ALLOCATION_TIMEOUT"`
-	ProviderTimeout      time.Duration `json:"providerTimeout" env:"I3D_PROVIDER_TIMEOUT"`
-	ReconcileInterval    time.Duration `json:"reconcileInterval" env:"I3D_RECONCILE_INTERVAL"`
-	ReconcileTimeout     time.Duration `json:"reconcileTimeout" env:"I3D_RECONCILE_TIMEOUT"`
-	ReconcileClockSkew   time.Duration `json:"reconcileClockSkew" env:"I3D_RECONCILE_CLOCK_SKEW"`
-	ReconcileGracePeriod time.Duration `json:"reconcileGracePeriod" env:"I3D_RECONCILE_GRACE_PERIOD"`
+	OneApi                    `json:"oneApi"`
+	Retry                     `json:"retry"`
+	AllocationFinalizeTimeout time.Duration `json:"allocationFinalizeTimeout" env:"I3D_ALLOCATION_FINALIZE_TIMEOUT"`
+	AllocationTimeout         time.Duration `json:"allocationTimeout" env:"I3D_ALLOCATION_TIMEOUT"`
+	ProviderTimeout           time.Duration `json:"providerTimeout" env:"I3D_PROVIDER_TIMEOUT"`
+	ReconcileInterval         time.Duration `json:"reconcileInterval" env:"I3D_RECONCILE_INTERVAL"`
+	ReconcileTimeout          time.Duration `json:"reconcileTimeout" env:"I3D_RECONCILE_TIMEOUT"`
+	ReconcileClockSkew        time.Duration `json:"reconcileClockSkew" env:"I3D_RECONCILE_CLOCK_SKEW"`
+	ReconcileGracePeriod      time.Duration `json:"reconcileGracePeriod" env:"I3D_RECONCILE_GRACE_PERIOD"`
 }
 type App struct {
 	Name    string
@@ -61,10 +62,11 @@ const (
 
 func defaultConfig() *Config {
 	return &Config{
-		App:               App{Name: "Nakama one plugin", Version: "1.0.0"},
-		OneApi:            OneApi{BaseUrl: "https://api.i3d.net"},
-		Retry:             Retry{Attempts: 3, Delay: 1500 * time.Millisecond, MaxDelay: 7500 * time.Millisecond},
-		AllocationTimeout: 120 * time.Second, ProviderTimeout: 90 * time.Second,
+		App:                       App{Name: "Nakama one plugin", Version: "1.0.0"},
+		OneApi:                    OneApi{BaseUrl: "https://api.i3d.net"},
+		Retry:                     Retry{Attempts: 3, Delay: 1500 * time.Millisecond, MaxDelay: 7500 * time.Millisecond},
+		AllocationFinalizeTimeout: 30 * time.Second,
+		AllocationTimeout:         120 * time.Second, ProviderTimeout: 90 * time.Second,
 		ReconcileInterval: time.Minute, ReconcileTimeout: 30 * time.Second, ReconcileGracePeriod: 2 * time.Minute, ReconcileClockSkew: 5 * time.Second,
 	}
 }
@@ -163,7 +165,8 @@ func applyEnv(cfg *Config, env map[string]string) error {
 	}
 	for key, target := range map[string]*time.Duration{
 		"I3D_RETRY_DELAY": &cfg.Delay, "I3D_RETRY_MAX_DELAY": &cfg.MaxDelay,
-		"I3D_ALLOCATION_TIMEOUT": &cfg.AllocationTimeout, "I3D_PROVIDER_TIMEOUT": &cfg.ProviderTimeout,
+		"I3D_ALLOCATION_FINALIZE_TIMEOUT": &cfg.AllocationFinalizeTimeout,
+		"I3D_ALLOCATION_TIMEOUT":          &cfg.AllocationTimeout, "I3D_PROVIDER_TIMEOUT": &cfg.ProviderTimeout,
 		"I3D_RECONCILE_INTERVAL": &cfg.ReconcileInterval, "I3D_RECONCILE_TIMEOUT": &cfg.ReconcileTimeout,
 		"I3D_RECONCILE_GRACE_PERIOD": &cfg.ReconcileGracePeriod, "I3D_RECONCILE_CLOCK_SKEW": &cfg.ReconcileClockSkew,
 	} {
@@ -210,8 +213,8 @@ func validate(cfg *Config) error {
 	if cfg.Delay < 0 || cfg.MaxDelay < cfg.Delay {
 		problems = append(problems, fmt.Errorf("retry delays must be nonnegative and max delay must be at least the initial delay"))
 	}
-	if cfg.AllocationTimeout <= 0 || cfg.ProviderTimeout <= 0 {
-		problems = append(problems, fmt.Errorf("allocation and provider timeouts must be positive"))
+	if cfg.AllocationTimeout <= 0 || cfg.AllocationFinalizeTimeout <= 0 || cfg.ProviderTimeout <= 0 {
+		problems = append(problems, fmt.Errorf("allocation, finalization and provider timeouts must be positive"))
 	}
 	if cfg.ReconcileInterval < 0 || cfg.ReconcileTimeout <= 0 || cfg.ReconcileGracePeriod < 0 {
 		problems = append(problems, fmt.Errorf("reconciliation interval/grace must be nonnegative and timeout must be positive"))

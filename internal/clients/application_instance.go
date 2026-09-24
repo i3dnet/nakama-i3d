@@ -24,6 +24,8 @@ type ApplicationInstanceListResponse struct {
 type ApplicationInstance interface {
 	ListApplicationInstances(ctx context.Context, filters string, limit int, previousCursor string) (*ApplicationInstanceListResponse, error)
 	GetApplicationInstance(ctx context.Context, instanceID string) (*runtime.InstanceInfo, error)
+	// A non-nil instance alongside an error identifies a confirmed allocation
+	// owned by this request; the caller must reclaim it instead of exposing it.
 	AllocateApplicationInstance(ctx context.Context, metaData map[string]any, filters string) (*runtime.InstanceInfo, error)
 	RestartApplicationInstance(ctx context.Context, instanceID string) error
 	UpdateApplicationInstance(ctx context.Context, instanceID string, metaData map[string]any) (*runtime.InstanceInfo, error)
@@ -142,14 +144,20 @@ func (o *OneApiClient) AllocateApplicationInstance(ctx context.Context, metaData
 	if response[0].ApplicationId != applicationID {
 		return nil, fmt.Errorf("provider returned an instance from a different application")
 	}
+	// Only a single, scoped ALLOCATED/ALLOCATING response establishes a safe
+	// cleanup target. A transport error or malformed identity remains ambiguous.
+	var knownAllocation *runtime.InstanceInfo
+	if strings.TrimSpace(response[0].Id) != "" && (response[0].Status == 5 || response[0].Status == 6) {
+		knownAllocation = &runtime.InstanceInfo{Id: response[0].Id, Status: ApplicationInstanceStatus[response[0].Status]}
+	}
 	instanceInfo, err := o.mapToInstanceInfo(response[0])
 	if err != nil {
 		o.logger.WithField("error", err.Error()).Error("failed to map instance")
-		return nil, err
+		return knownAllocation, err
 	}
 
 	if instanceInfo.Status != ApplicationInstanceStatus[5] {
-		return nil, fmt.Errorf("allocation is not complete: status %s", instanceInfo.Status)
+		return knownAllocation, fmt.Errorf("allocation is not complete: status %s", instanceInfo.Status)
 	}
 	return instanceInfo, nil
 }

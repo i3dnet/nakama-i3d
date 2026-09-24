@@ -151,10 +151,12 @@ func TestCreateStorageFailureIsTerminalError(t *testing.T) {
 	fm, client, cache, _, _ := createFixture(t)
 	client.EXPECT().AllocateApplicationInstance(gomock.Any(), gomock.Any(), gomock.Any()).Return(&runtime.InstanceInfo{Id: "instance", Metadata: map[string]any{}}, nil)
 	cache.EXPECT().CreateGameSession(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(errors.New("storage unavailable"))
+	client.EXPECT().RestartApplicationInstance(gomock.Any(), "instance").Return(nil)
 	result := make(chan createResult, 2)
 	_, err := fm.Create(context.Background(), 2, nil, nil, nil, resultCallback(result))
 	require.NoError(t, err)
 	got := awaitCreate(t, result)
+	fm.operations.Wait()
 	require.Error(t, got.err)
 	require.Equal(t, runtime.CreateError, got.status)
 	require.Nil(t, got.instance)
@@ -204,6 +206,7 @@ func TestCreateTimeoutIgnoresLateCompletion(t *testing.T) {
 		<-release
 		return &runtime.InstanceInfo{Id: "late"}, nil
 	})
+	client.EXPECT().RestartApplicationInstance(gomock.Any(), "late").Return(nil)
 	result := make(chan createResult, 2)
 	_, err := fm.Create(context.Background(), 2, nil, nil, nil, resultCallback(result))
 	require.NoError(t, err)

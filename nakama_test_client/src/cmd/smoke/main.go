@@ -283,7 +283,7 @@ func (h *harness) run() error {
 	if state["allocations"] != float64(2) || state["restarts"] != float64(1) || state["list_pages"].(float64) < 2 {
 		return fmt.Errorf("reconciliation restarted a server or missed pagination: %v", state)
 	}
-	for _, behavior := range []map[string]int{{"response_status": 4}, {"delay_ms": 1000}} {
+	for _, behavior := range []map[string]int{{"response_status": 4}, {"response_status": 6}, {"delay_ms": 1000}} {
 		before, err := h.state()
 		if err != nil {
 			return err
@@ -309,12 +309,33 @@ func (h *harness) run() error {
 		if after["allocations"].(float64) != before["allocations"].(float64)+1 {
 			return fmt.Errorf("ambiguous allocation was retried")
 		}
+		if behavior["response_status"] == 6 {
+			// A scoped ALLOCATING response identifies the failed allocation.
+			// Cleanup runs after the error callback; wait for its one restart.
+			until := time.Now().Add(3 * time.Second)
+			for after["restarts"] == before["restarts"] && time.Now().Before(until) {
+				select {
+				case <-time.After(50 * time.Millisecond):
+				case <-h.ctx.Done():
+					return h.ctx.Err()
+				}
+				after, err = h.state()
+				if err != nil {
+					return err
+				}
+			}
+			if after["restarts"].(float64) != before["restarts"].(float64)+1 {
+				return fmt.Errorf("known failed allocation was not reclaimed once: %v", after)
+			}
+		} else if after["restarts"] != before["restarts"] {
+			return fmt.Errorf("ambiguous allocation triggered an unsafe restart")
+		}
 		status, _, err = h.request("POST", h.provider+"/_test/instances/"+id+"/status", map[string]int{"status": 4}, "provider")
 		if err != nil || status != 200 {
 			return fmt.Errorf("reset fixture failed")
 		}
 	}
-	fmt.Println("Smoke passed: two clients, one matchmaking allocation, persisted metadata before notifications, native storage conflicts, server-only lifecycle update/restart, missed-termination recovery across provider pages, invalid readiness and bounded allocation timeout.")
+	fmt.Println("Smoke passed: two clients, one matchmaking allocation, persisted metadata before notifications, native storage conflicts, server-only lifecycle update/restart, missed-termination recovery across provider pages, invalid readiness, known-allocation cleanup and bounded allocation timeout.")
 	return nil
 }
 func main() {

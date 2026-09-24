@@ -198,3 +198,43 @@ func TestProviderRejectsNonPublicAddressesDespitePublicFlag(t *testing.T) {
 		})
 	}
 }
+
+func TestAllocationErrorRetainsOnlyConfirmedAllocationIdentity(t *testing.T) {
+	for _, kind := range []string{"missing-port", "allocating", "online", "wrong-application", "empty-id", "whitespace-id", "multiple"} {
+		t.Run(kind, func(t *testing.T) {
+			instance := validProviderInstance()
+			known := false
+			switch kind {
+			case "missing-port":
+				instance.Properties = nil
+				known = true
+			case "allocating":
+				instance.Status = 6
+				known = true
+			case "online":
+				instance.Status = 4
+			case "wrong-application":
+				instance.ApplicationId = "other"
+			case "empty-id":
+				instance.Id = ""
+			case "whitespace-id":
+				instance.Id = " "
+			}
+			client := contractClient(t, func(w http.ResponseWriter, r *http.Request) {
+				response := []openapi.ApplicationInstance{instance}
+				if kind == "multiple" {
+					response = append(response, instance)
+				}
+				writeInstances(w, response)
+			})
+			got, err := client.AllocateApplicationInstance(context.Background(), nil, "")
+			require.Error(t, err)
+			if known {
+				require.NotNil(t, got)
+				require.Equal(t, instance.Id, got.Id)
+			} else {
+				require.Nil(t, got, "unconfirmed identity must never authorize restart")
+			}
+		})
+	}
+}
