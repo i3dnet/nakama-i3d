@@ -1,6 +1,6 @@
 # Release candidate checklist — 24 September 2026
 
-Implementation candidate: 987fc15e0af46b32ade3db1b6f78728226ea121e, publicly resolved as v0.0.0-20260924152513-987fc15e0af4. The initial main review used f26ac9d83ebb1a70f492db70b69eacf842403cb6. Upstream main is now 9a20297 after #8 was merged; this work has not merged PRs. The deployed artifact is unknown.
+Implementation candidate: 60cea4930eae7c464d6f4342663a6985ca9f0615, publicly resolved as v0.0.0-20260924154401-60cea4930eae. The initial main review used f26ac9d83ebb1a70f492db70b69eacf842403cb6. Upstream main is now 9a20297 after #8 was merged; this work has not merged PRs. The deployed artifact is unknown.
 
 ## Review layout
 
@@ -24,7 +24,7 @@ The [superseded stack map](reviews/2026-09-24-superseded-pr-stack.md) retains th
 - [x] Actual storage-index sorting, tied player counts with descending creation times, and continuation pages. Sort fields use value.player_count and value.create_time.
 - [x] Provider multi-page reconciliation, missed termination without restart, invalid readiness, exactly one restart for a confirmed failed allocation, and bounded timeout without allocation retry.
 - [x] Unit regression coverage for completed-result precedence, fresh persistence and cleanup contexts, cleanup error reporting, callback lifetime/one terminal callback, failed provider pages, Create/Join/reallocation races, storage pagination boundaries and bounded clock skew, OAuth refresh and cancellation.
-- [x] Fresh public Go module cache, no clone/replace/private GitLab credentials: scripts/check-install.sh at 987fc15 resolves the pseudo-version above and compiles the real example.
+- [x] Fresh public Go module cache, no clone/replace/private GitLab credentials: scripts/check-install.sh at 60cea49 resolves the pseudo-version above and compiles the real example.
 - [x] Partner guide Go files and filter block compiled/tested in an isolated consumer through scripts/check-docs.py. CI recompiles the actual Markdown blocks.
 - [x] Documented unwrapped JSON lifecycle payloads executed against Nakama's HTTP-key endpoint.
 - [x] Ordinary plugin builds exclude the i3d_smoke test RPCs.
@@ -42,7 +42,20 @@ The runtime follow-up at 987fc15 addresses the three findings in [Copilot's revi
 | [Canceled OAuth refresh leader fails live waiters](https://github.com/i3dnet/nakama-i3d/pull/42#discussion_r4095147568) | Live waiters share a replacement refresh; each waiter keeps its own cancellation. Deterministic tests cover leader cancellation/deadline, provider failures and a canceled waiter racing success. |
 | [List cache records lose cleanup ownership](https://github.com/i3dnet/nakama-i3d/pull/42#discussion_r4095147617) | Unknown records are not cached. A replaced generation retains ownership while invalidated or is conditionally retired. Tests cover mixed pages, cleanup, repeated reads, older provider generations and a delayed Update that must not revive admission. |
 
-The full root race suite, vet, real Nakama/PostgreSQL lifecycle smoke and fresh public consumer installation passed after these fixes. The guide's dependency pin and behavior documentation track that commit. Fresh current-head Copilot Balanced review and CI remain separate review gates.
+The full root race suite, vet, real Nakama/PostgreSQL lifecycle smoke and fresh public consumer installation passed after these fixes. A follow-up at bb9a621 corrects the new timestamp regression to compare instants rather than time-zone representation; the full root race suite also passes with TZ=UTC. The guide's dependency pin and behavior documentation track the current candidate listed above. Fresh current-head Copilot Balanced review and CI remain separate review gates.
+
+The [next runtime Balanced review](https://github.com/i3dnet/nakama-i3d/pull/42#pullrequestreview-5306571688) reported additional issues in expanded details despite showing “Findings: None.” The [documentation review](https://github.com/i3dnet/nakama-i3d/pull/43#pullrequestreview-5306598408) used the same presentation. These findings have no inline threads to resolve.
+
+| Additional finding | Resolution |
+| --- | --- |
+| Reported player count exceeds local capacity | Validate against stored capacity before the provider call and again in the versioned mutation; reject over-capacity reports as INVALID_ARGUMENT. |
+| One API retains the previous player count | Pass the reported count through the provider client and write numPlayers alongside metadata. |
+| Shutdown grace is shorter than cleanup budget | Example and smoke Nakama configs allow 45 seconds; Compose allows 60 seconds before forced termination, exceeding the default 30-second cleanup budget. |
+| Generated build-provisioning endpoint leaves an ID placeholder in the URL | Align the generated route and source schema placeholder; an HTTP-capture regression verifies the exact path. |
+| Guide verifier omits the import-only block | Compile that block in its own Go file and reject unrecognized blocks. A temporary malformed import was accepted before the fix and rejected afterward. |
+| Historical review record claims an obsolete active pin | Describe the prior candidate in the past tense and link to this current checklist. |
+
+The additional runtime fixes are included in 60cea49. Root and mock-provider race suites and vet pass with TZ=UTC; the generated endpoint HTTP capture and real Nakama/PostgreSQL lifecycle smoke pass, including provider player-count propagation. Fresh public consumer installation resolves the candidate above and builds the real example without replace.
 
 ## Remaining release gates
 

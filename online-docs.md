@@ -4,7 +4,7 @@
 >
 > This is a replacement draft for the [current i3D integration guide](https://heroiclabs.com/docs/nakama/guides/concepts/i3d-integration/). The implementation candidate targets Nakama 3.41.0 and has passed local unit/race checks, real plugin loading and the full lifecycle smoke test. It is in review; no release tag or production deployment has been published.
 >
-> The legacy main revision, `9a20297`, uses Nakama 3.26.0 / nakama-common 1.36.0 and a nested GitLab module path. This guide uses the implementation candidate commit `987fc15e0af46b32ade3db1b6f78728226ea121e`. Replace that pin with the approved release version after merging and staging validation. The final section lists the remaining publication gates.
+> The legacy main revision, `9a20297`, uses Nakama 3.26.0 / nakama-common 1.36.0 and a nested GitLab module path. This guide uses the implementation candidate commit `60cea4930eae7c464d6f4342663a6985ca9f0615`. Replace that pin with the approved release version after merging and staging validation. The final section lists the remaining publication gates.
 
 Use Nakama to authenticate players and find matches, then allocate a dedicated game server through i3D.net. Players receive the server's connection details through a Nakama notification and connect directly using your game's networking transport.
 
@@ -29,7 +29,7 @@ The candidate has been tested with this exact combination:
 | nakama-common | 1.48.0 |
 | Go | 1.27.1 |
 | Shared protobuf dependency | 1.36.12 |
-| i3D integration | Candidate 987fc15; release tag pending |
+| i3D integration | Candidate 60cea49; release tag pending |
 
 The dependency versions come from [Nakama 3.41.0's go.mod](https://github.com/heroiclabs/nakama/blob/v3.41.0/go.mod). The matching plugin loads in Nakama on Linux ARM64 locally; CI also builds and loads it on Linux AMD64. This does not establish compatibility with other runtime versions.
 
@@ -86,7 +86,7 @@ To evaluate the candidate, run these commands in your Go runtime project:
 # Only needed for a new project:
 go mod init example.com/nakama-i3d-game
 
-go get github.com/i3dnet/nakama-i3d@987fc15e0af46b32ade3db1b6f78728226ea121e
+go get github.com/i3dnet/nakama-i3d@60cea4930eae7c464d6f4342663a6985ca9f0615
 go get github.com/heroiclabs/nakama-common@v1.48.0 google.golang.org/protobuf@v1.36.12
 ~~~
 
@@ -110,7 +110,7 @@ The examples below load settings from Nakama's `runtime.env` through `NewConfigF
 A minimal configuration using an i3D API token is:
 
 ~~~yaml
-shutdown_grace_sec: 15
+shutdown_grace_sec: 45
 runtime:
   http_key: "REPLACE_WITH_A_RANDOM_SERVER_ONLY_HTTP_KEY"
   env:
@@ -169,6 +169,8 @@ Only reads retry transient network failures and HTTP 408, 429, 500, 502, 503 or 
 | Player → dedicated game server | Your game's player-authentication protocol |
 
 Arcus coordinates server allocation and metadata. It does not replace player authentication.
+
+Keep Nakama's shutdown grace longer than I3D_ALLOCATION_FINALIZE_TIMEOUT, with time for cancellation to propagate. These examples allow 45 seconds for the default 30-second cleanup budget. Configure the container or service manager to wait longer still (the repository Compose files allow 60 seconds). A dependency that ignores cancellation can still outlive the grace period.
 
 ## Register the fleet manager
 
@@ -400,7 +402,7 @@ Content-Type: application/json
 }
 ~~~
 
-Use the i3D application-instance ID and the exact `player_count` field name. Send nonnegative counts and game-owned metadata only. Treat the submitted metadata as the current game metadata you intend to retain; do not rely on an undocumented partial-merge behavior.
+Use the i3D application-instance ID and the exact `player_count` field name. Send counts from zero through the stored session capacity and game-owned metadata only. Counts outside that range return INVALID_ARGUMENT. Accepted counts update both Nakama admission state and One API's player count. Treat the submitted metadata as the current game metadata you intend to retain; do not rely on an undocumented partial-merge behavior.
 
 The `unwrap` option allows the JSON body to be sent directly. Your Nakama SDK's HTTP-key RPC overload can also make the call.
 

@@ -1,6 +1,6 @@
 # Review resolutions — 24 September 2026
 
-The implementation candidate is 983f46c78e19656d86a3d7b6b069b3489a711cd7, publicly resolved as v0.0.0-20260924105049-983f46c78e19. The partner guide and release checklist use this pin. Review fixes are appended to the existing stack; earlier PRs keep their focused diffs. No release, deployment or merge is performed by this work.
+This historical record covers implementation candidate 983f46c78e19656d86a3d7b6b069b3489a711cd7, publicly resolved as v0.0.0-20260924105049-983f46c78e19. The partner guide and release checklist used that pin at the time, and fixes were appended to the then-active PR stack. The stack has since been superseded by runtime PR #42 and documentation PR #43. See the [current release checklist](../release-checklist.md) for the active candidate and review layout. No release, deployment or merge was performed by this work.
 
 | Finding | Fix | Verification |
 | --- | --- | --- |

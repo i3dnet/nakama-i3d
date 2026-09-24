@@ -10,7 +10,7 @@ This candidate is under review. Main at 9a20297 is the legacy Nakama 3.26 integr
 | nakama-common | 1.48.0 |
 | Go | 1.27.1 |
 | Shared protobuf | 1.36.12 |
-| Implementation commit | 987fc15e0af46b32ade3db1b6f78728226ea121e |
+| Implementation commit | 60cea4930eae7c464d6f4342663a6985ca9f0615 |
 
 The Dockerfile pins the matching image digests. Other runtime/toolchain combinations need their own build/load test.
 
@@ -18,7 +18,7 @@ The Dockerfile pins the matching image digests. Other runtime/toolchain combinat
 
 ~~~sh
 go mod init example.com/nakama-game
-go get github.com/i3dnet/nakama-i3d@987fc15e0af46b32ade3db1b6f78728226ea121e
+go get github.com/i3dnet/nakama-i3d@60cea4930eae7c464d6f4342663a6985ca9f0615
 ~~~
 
 Import github.com/i3dnet/nakama-i3d (package fleetmanager) and github.com/i3dnet/nakama-i3d/config. External installation needs no clone or local replace. Pin the approved tag after release; @latest is not the candidate path while main retains the old layout.

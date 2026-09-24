@@ -18,7 +18,9 @@ module = "github.com/i3dnet/nakama-i3d"
 blocks = re.findall(r"~~~go\n(.*?)\n~~~", (root / "online-docs.md").read_text(), re.S)
 complete = [block for block in blocks if block.startswith("package main")]
 filters = [block for block in blocks if block.startswith("filters :=")]
-assert len(complete) == 2 and len(filters) == 1, "guide snippet layout changed"
+imports = [block for block in blocks if block.startswith("import (")]
+assert len(complete) == 2 and len(filters) == 1 and len(imports) == 1, "guide snippet layout changed"
+assert len(blocks) == len(complete) + len(filters) + len(imports), "unverified Go block in guide"
 with tempfile.TemporaryDirectory(prefix="i3d-docs-") as directory:
     tmp = Path(directory)
     env = {**os.environ, "GOWORK": "off", "GOPRIVATE": "", "GONOPROXY": ""}
@@ -50,6 +52,9 @@ with tempfile.TemporaryDirectory(prefix="i3d-docs-") as directory:
         go("get", module + "@" + version)
         for index, block in enumerate(complete):
             (consumer / f"guide{index}.go").write_text(block + "\n")
+        (consumer / "guide_imports.go").write_text(
+            "package main\n" + imports[0] +
+            "\nvar _ = fleetmanager.NewI3dFleetManager\nvar _ = fleetconfig.NewConfigFromRuntime\n")
         (consumer / "filters_test.go").write_text(
             'package main\nimport ("testing"; fleetmanager "github.com/i3dnet/nakama-i3d")\n'
             'func TestDocumentedFilters(t *testing.T) {\n' + filters[0] +
