@@ -11,7 +11,6 @@ import (
 	"gitlab.com/i3Dnet/dev/game/projects/plugins/nakama/fleetmanager/internal/tests"
 	"gitlab.com/i3Dnet/dev/game/projects/plugins/nakama/fleetmanager/internal/tests/mock"
 	"go.uber.org/mock/gomock"
-	"sync"
 	"testing"
 	"time"
 )
@@ -274,10 +273,10 @@ func (suite *FleetManagerSuite) TestCreate_GivenCallback_ShouldCallCallback() {
 	defer ctrl.Finish()
 
 	client.EXPECT().AllocateApplicationInstance(gomock.Any(), metaData, gomock.Any()).Return(expected, nil).Times(1)
-	storageService.EXPECT().UpdateStorageGameSession(gomock.Any(), []*runtime.InstanceInfo{expected}).Return(nil).Times(1)
+	stored := make(chan struct{})
+	storageService.EXPECT().UpdateStorageGameSession(gomock.Any(), []*runtime.InstanceInfo{expected}).DoAndReturn(func(context.Context, []*runtime.InstanceInfo) error { close(stored); return nil }).Times(1)
 
-	var wg sync.WaitGroup
-	wg.Add(1)
+	done := make(chan struct{})
 
 	var callback runtime.FmCreateCallbackFn = func(status runtime.FmCreateStatus, instanceInfo *runtime.InstanceInfo, sessionInfo []*runtime.SessionInfo, metadata map[string]any, err error) {
 		suite.Equal(runtime.CreateSuccess, status)
@@ -285,7 +284,7 @@ func (suite *FleetManagerSuite) TestCreate_GivenCallback_ShouldCallCallback() {
 		suite.Equal(metaData, metadata)
 		suite.Equal(userId, sessionInfo[0].UserId)
 		suite.Nil(err)
-		wg.Done()
+		close(done)
 	}
 
 	var latency []runtime.FleetUserLatencies
@@ -295,12 +294,11 @@ func (suite *FleetManagerSuite) TestCreate_GivenCallback_ShouldCallCallback() {
 	// assert
 	suite.NoError(err)
 
-	// 👇 Wait for callback to complete
-	done := make(chan struct{})
-	go func() {
-		wg.Wait()
-		close(done)
-	}()
+	select {
+	case <-stored:
+	case <-time.After(2 * time.Second):
+		suite.T().Fatal("Storage was not called in time")
+	}
 
 	select {
 	case <-done:
@@ -326,13 +324,12 @@ func (suite *FleetManagerSuite) TestCreate_GivenAllocationFails_ShouldGiveError(
 	client.EXPECT().AllocateApplicationInstance(gomock.Any(), metaData, gomock.Any()).Return(nil, errors.New("allocation failed")).Times(1)
 	storageService.EXPECT().UpdateStorageGameSession(gomock.Any(), []*runtime.InstanceInfo{expected}).Return(nil).Times(0)
 
-	var wg sync.WaitGroup
-	wg.Add(1)
+	done := make(chan struct{})
 
 	var callback runtime.FmCreateCallbackFn = func(status runtime.FmCreateStatus, instanceInfo *runtime.InstanceInfo, sessionInfo []*runtime.SessionInfo, metadata map[string]any, err error) {
 		suite.Equal(runtime.CreateError, status)
 		suite.Error(err)
-		wg.Done()
+		close(done)
 	}
 
 	var latency []runtime.FleetUserLatencies
@@ -341,13 +338,6 @@ func (suite *FleetManagerSuite) TestCreate_GivenAllocationFails_ShouldGiveError(
 
 	// assert
 	suite.NoError(err)
-
-	// 👇 Wait for callback to complete
-	done := make(chan struct{})
-	go func() {
-		wg.Wait()
-		close(done)
-	}()
 
 	select {
 	case <-done:
@@ -371,10 +361,8 @@ func (suite *FleetManagerSuite) TestCreate_GivenWithOutCallback_ShouldSucceed() 
 	defer ctrl.Finish()
 
 	client.EXPECT().AllocateApplicationInstance(gomock.Any(), metaData, gomock.Any()).Return(expected, nil).Times(1)
-	storageService.EXPECT().UpdateStorageGameSession(gomock.Any(), []*runtime.InstanceInfo{expected}).Return(nil).Times(1)
-
-	var wg sync.WaitGroup
-	wg.Add(1)
+	stored := make(chan struct{})
+	storageService.EXPECT().UpdateStorageGameSession(gomock.Any(), []*runtime.InstanceInfo{expected}).DoAndReturn(func(context.Context, []*runtime.InstanceInfo) error { close(stored); return nil }).Times(1)
 
 	var latency []runtime.FleetUserLatencies
 	// act
@@ -383,16 +371,8 @@ func (suite *FleetManagerSuite) TestCreate_GivenWithOutCallback_ShouldSucceed() 
 	// assert
 	suite.NoError(err)
 
-	// 👇 Wait for callback to complete
-	done := make(chan struct{})
-	go func() {
-		time.Sleep(500 * time.Millisecond)
-		wg.Done()
-		close(done)
-	}()
-
 	select {
-	case <-done:
+	case <-stored:
 	case <-time.After(2 * time.Second):
 		suite.T().Fatal("Callback was not invoked in time")
 	}
@@ -414,10 +394,13 @@ func (suite *FleetManagerSuite) TestCreate_GivenUpdatingStorageFails_ShouldSucce
 	defer ctrl.Finish()
 
 	client.EXPECT().AllocateApplicationInstance(gomock.Any(), metaData, gomock.Any()).Return(expected, nil).Times(1)
-	storageService.EXPECT().UpdateStorageGameSession(gomock.Any(), []*runtime.InstanceInfo{expected}).Return(errors.New("failed to save to storage")).Times(1)
+	stored := make(chan struct{})
+	storageService.EXPECT().UpdateStorageGameSession(gomock.Any(), []*runtime.InstanceInfo{expected}).DoAndReturn(func(context.Context, []*runtime.InstanceInfo) error {
+		close(stored)
+		return errors.New("failed to save to storage")
+	}).Times(1)
 
-	var wg sync.WaitGroup
-	wg.Add(1)
+	done := make(chan struct{})
 
 	var callback runtime.FmCreateCallbackFn = func(status runtime.FmCreateStatus, instanceInfo *runtime.InstanceInfo, sessionInfo []*runtime.SessionInfo, metadata map[string]any, err error) {
 		suite.Equal(runtime.CreateSuccess, status)
@@ -425,7 +408,7 @@ func (suite *FleetManagerSuite) TestCreate_GivenUpdatingStorageFails_ShouldSucce
 		suite.Equal(metaData, metadata)
 		suite.Equal(userId, sessionInfo[0].UserId)
 		suite.Nil(err)
-		wg.Done()
+		close(done)
 	}
 
 	var latency []runtime.FleetUserLatencies
@@ -435,16 +418,15 @@ func (suite *FleetManagerSuite) TestCreate_GivenUpdatingStorageFails_ShouldSucce
 	// assert
 	suite.NoError(err)
 
-	// 👇 Wait for callback to complete
-	done := make(chan struct{})
-	go func() {
-		wg.Wait()
-		close(done)
-	}()
+	select {
+	case <-stored:
+	case <-time.After(2 * time.Second):
+		suite.T().Fatal("Storage was not called in time")
+	}
 
 	select {
 	case <-done:
-		suite.True(suite.logger.HasError(expectedErrorMessage))
+		suite.Eventually(func() bool { return suite.logger.HasError(expectedErrorMessage) }, 2*time.Second, time.Millisecond)
 	case <-time.After(2 * time.Second):
 		suite.T().Fatal("Callback was not invoked in time")
 	}
