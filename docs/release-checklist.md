@@ -9,7 +9,7 @@ Both replacement PRs start at the same main commit, 9a20297372909469ffdc88e203f6
 | PR | Scope |
 | --- | --- |
 | [Runtime #42](https://github.com/i3dnet/nakama-i3d/pull/42) | Public module, Nakama 3.41 migration, provider/storage/lifecycle fixes, build tooling and executable verification |
-| [Documentation branch](https://github.com/i3dnet/nakama-i3d/tree/codex/partner-documentation) | Partner guide, user/reference documentation, historical evidence and standalone guide compilation |
+| [Documentation #43](https://github.com/i3dnet/nakama-i3d/pull/43) | Partner guide, user/reference documentation, historical evidence and standalone guide compilation |
 
 The runtime PR includes the prior review fixes and the dependency updates from #36/#37. The documentation workflow compiles the pinned public runtime candidate while the root module is absent from main, then compiles the checked-out runtime once the root go.mod is present. No intermediate packaging or security-only revision is a supported release.
 

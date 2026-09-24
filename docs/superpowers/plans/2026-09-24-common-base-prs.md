@@ -23,7 +23,7 @@
 - Hidden dependencies between PRs: test the runtime alone and compile guide examples on the docs-only branch.
 - Overlapping diffs: compare changed path sets and verify the branches merge cleanly.
 - Stale install pins: resolve the new runtime commit publicly and compile the guide against that exact version.
-- Skipped final integration checks: run both the lifecycle smoke and local guide compilation on the combined tree.
+- Skipped final integration checks: run lifecycle smoke on the runtime scope, verify combined runtime source is identical, and compile the guide on the combined tree.
 
 ## Task 1: Runtime and verification
 
@@ -42,12 +42,12 @@ Interface: uses the public runtime candidate without clone/replace on the docs-o
 - [x] Update active candidate pins and the release checklist; keep historical review evidence and the archived draft intact.
 - [x] Add a guide workflow: compile local source when go.mod exists, otherwise compile the published candidate.
 - [x] Compile the actual guide blocks on the documentation-only tree and verify archived draft hash.
-- [ ] Scan staged additions, commit, push, and create the documentation PR.
+- [x] Scan staged additions, commit, push, and create the documentation PR.
 
 ## Task 3: Verify and replace the old stack
 
-- [ ] Verify both branch fork points equal the frozen main commit and changed-path sets have an empty intersection.
-- [ ] Combine the branches locally; verify source blobs are unchanged and run guide compilation against local runtime.
+- [x] Verify both branch fork points equal the frozen main commit and changed-path sets have an empty intersection.
+- [x] Combine the branches locally; verify source blobs are unchanged and run guide compilation against local runtime.
 - [ ] Request Copilot Balanced and PatrickB1977 on both PRs; read complete review bodies and inline findings.
 - [ ] Address actionable findings in the owning PR, retest, and resolve fixed threads.
 - [ ] Confirm CI and replacement links, then close all superseded PRs without deleting their branches.

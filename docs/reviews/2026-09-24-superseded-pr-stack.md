@@ -41,4 +41,4 @@ Merge in order after review; each PR is based on the preceding branch. Do not re
 
 PRs [#36](https://github.com/i3dnet/nakama-i3d/pull/36) and [#37](https://github.com/i3dnet/nakama-i3d/pull/37) are independent Dependabot changes against legacy main. Their own module, CI and Docker toolchains are aligned; their dependency updates are also incorporated in #38. They are not additional steps in this stack, and do not establish support for loading the new plugin into the legacy Nakama runtime.
 
-Finding-by-finding evidence is recorded for [September 23](reviews/2026-09-23-copilot-resolution.md) and [September 24](reviews/2026-09-24-review-resolution.md).
+Finding-by-finding evidence is recorded for [September 23](2026-09-23-copilot-resolution.md) and [September 24](2026-09-24-review-resolution.md).
