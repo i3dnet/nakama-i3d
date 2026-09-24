@@ -1,6 +1,6 @@
 module gitlab.com/i3Dnet/dev/game/projects/plugins/nakama/mock-api-server
 
-go 1.25.0
+go 1.27.1
 
 require (
 	github.com/gin-gonic/gin v1.10.0
