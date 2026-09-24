@@ -29,7 +29,7 @@ The candidate has been tested with this exact combination:
 | nakama-common | 1.48.0 |
 | Go | 1.27.1 |
 | Shared protobuf dependency | 1.36.12 |
-| i3D integration | Candidate 3ce0339; release tag pending |
+| i3D integration | Candidate 923907b; release tag pending |
 
 The dependency versions come from [Nakama 3.41.0's go.mod](https://github.com/heroiclabs/nakama/blob/v3.41.0/go.mod). The matching plugin loads in Nakama on Linux ARM64 locally; CI also builds and loads it on Linux AMD64. This does not establish compatibility with other runtime versions.
 
