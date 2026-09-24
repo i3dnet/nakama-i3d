@@ -19,6 +19,12 @@ const (
 
 var ErrSessionNotFound = errors.New("session not found")
 var ErrCorruptSession = errors.New("corrupt stored session")
+var ErrStaleSession = errors.New("stored allocation has been invalidated")
+
+var errNoSessionUpdates = errors.New("no local sessions to refresh")
+
+// staleProviderGeneration prevents admission while retaining cleanup ownership.
+const staleProviderGeneration = "STALE"
 
 type FleetManagerStorage interface {
 	GetGameSessionSnapshot(context.Context, string) (*api.StorageObject, error)
@@ -138,6 +144,9 @@ func cloneInstance(instance *runtime.InstanceInfo) (*runtime.InstanceInfo, error
 // MergeProviderInstance refreshes provider fields while retaining local capacity/admissions.
 // A changed provider creation time identifies a new instance generation.
 func MergeProviderInstance(stored, incoming *runtime.InstanceInfo) error {
+	if stored.Status == staleProviderGeneration {
+		return ErrStaleSession
+	}
 	refreshed, err := cloneInstance(incoming)
 	if err != nil {
 		return err
@@ -258,35 +267,58 @@ func (fms *FleetManagerStorageService) UpdateStorageGameSession(ctx context.Cont
 		writes := make([]*runtime.StorageWrite, 0, len(instances))
 		committed = make([]*runtime.InstanceInfo, 0, len(instances))
 		for _, incoming := range instances {
-			version := "*"
-			record := &sessionRecord{InstanceInfo: &runtime.InstanceInfo{Id: incoming.Id}, Local: localState{JoinedUsers: map[string]bool{}}}
-			if object := byID[incoming.Id]; object != nil {
-				var err error
-				record, err = decodeRecord(object.Value, incoming.Id)
-				if err != nil {
+			// Provider metadata cannot reconstruct local admission capacity.
+			// Return a sanitized provider view, but never create a cache record.
+			providerView := &runtime.InstanceInfo{Id: incoming.Id}
+			if err := MergeProviderInstance(providerView, incoming); err != nil {
+				return nil, err
+			}
+			object := byID[incoming.Id]
+			if object == nil {
+				committed = append(committed, providerView)
+				continue
+			}
+			record, err := decodeRecord(object.Value, incoming.Id)
+			if err != nil {
+				return nil, err
+			}
+			if object.Version == "" {
+				return nil, fmt.Errorf("%w: missing storage version", ErrCorruptSession)
+			}
+			changedGeneration := !record.CreateTime.IsZero() && !incoming.CreateTime.IsZero() && !record.CreateTime.Equal(incoming.CreateTime)
+			if record.Status == staleProviderGeneration {
+				committed = append(committed, providerView)
+				continue
+			}
+			if changedGeneration && incoming.CreateTime.Before(record.CreateTime) {
+				committed = append(committed, record.InstanceInfo)
+				continue
+			}
+			if changedGeneration {
+				// Invalidate the old admission state atomically with the page.
+				// Keep its identity/ownership for conditional reconciliation;
+				// do not adopt the unknown replacement's capacity or generation.
+				record.Status = staleProviderGeneration
+				committed = append(committed, providerView)
+			} else {
+				if err := MergeProviderInstance(record.InstanceInfo, incoming); err != nil {
 					return nil, err
 				}
-				if object.Version == "" {
-					return nil, fmt.Errorf("%w: missing storage version", ErrCorruptSession)
-				}
-				version = object.Version
-			}
-			if !record.CreateTime.IsZero() && !incoming.CreateTime.IsZero() && !record.CreateTime.Equal(incoming.CreateTime) {
-				record.Local = localState{JoinedUsers: map[string]bool{}}
-			}
-			if err := MergeProviderInstance(record.InstanceInfo, incoming); err != nil {
-				return nil, err
+				committed = append(committed, record.InstanceInfo)
 			}
 			value, err := json.Marshal(record)
 			if err != nil {
 				return nil, err
 			}
-			writes = append(writes, &runtime.StorageWrite{Collection: StorageI3dInstancesCollection, Key: incoming.Id, Value: string(value), Version: version, PermissionRead: 0, PermissionWrite: 0})
-			committed = append(committed, record.InstanceInfo)
+			writes = append(writes, &runtime.StorageWrite{Collection: StorageI3dInstancesCollection, Key: incoming.Id, Value: string(value), Version: object.Version, PermissionRead: 0, PermissionWrite: 0})
+		}
+		if len(writes) == 0 {
+			// Avoid issuing an empty write transaction for provider-only pages.
+			return nil, errNoSessionUpdates
 		}
 		return writes, nil
 	}, 5)
-	if err != nil {
+	if err != nil && !errors.Is(err, errNoSessionUpdates) {
 		return err
 	}
 	// Publish the merged page only after the complete transaction succeeds.

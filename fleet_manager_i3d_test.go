@@ -598,7 +598,7 @@ func (suite *FleetManagerSuite) TestUpdate_ShouldUpdate() {
 		return &cp, nil
 	}).Times(1)
 
-	storageService.EXPECT().MutateGameSession(gomock.Any(), expected.Id, true, gomock.Any()).DoAndReturn(func(_ context.Context, _ string, _ bool, fn func(*runtime.InstanceInfo, map[string]bool) error) (*runtime.InstanceInfo, error) {
+	storageService.EXPECT().MutateGameSession(gomock.Any(), expected.Id, false, gomock.Any()).DoAndReturn(func(_ context.Context, _ string, _ bool, fn func(*runtime.InstanceInfo, map[string]bool) error) (*runtime.InstanceInfo, error) {
 		err := fn(expected, map[string]bool{})
 		suite.NoError(err)
 		suite.Equal(playerCount, expected.PlayerCount)
@@ -627,7 +627,7 @@ func (suite *FleetManagerSuite) TestUpdateGivenApiError_ShouldReturnError() {
 	defer ctrl.Finish()
 
 	client.EXPECT().UpdateApplicationInstance(gomock.Any(), expected.Id, metaData).Return(nil, errors.New("failed")).Times(1)
-	storageService.EXPECT().MutateGameSession(gomock.Any(), gomock.Any(), true, gomock.Any()).Return(nil, nil).Times(0)
+	storageService.EXPECT().MutateGameSession(gomock.Any(), gomock.Any(), false, gomock.Any()).Return(nil, nil).Times(0)
 
 	// act
 	err := suite.newTestFleetManager(client, storageService).Update(suite.ctx, expected.Id, expected.PlayerCount, metaData)
@@ -649,7 +649,7 @@ func (suite *FleetManagerSuite) TestUpdateGivenStorageError_ShouldReturnError() 
 	defer ctrl.Finish()
 
 	client.EXPECT().UpdateApplicationInstance(gomock.Any(), expected.Id, metaData).Return(expected, nil).Times(1)
-	storageService.EXPECT().MutateGameSession(gomock.Any(), expected.Id, true, gomock.Any()).Return(nil, errors.New("failed")).Times(1)
+	storageService.EXPECT().MutateGameSession(gomock.Any(), expected.Id, false, gomock.Any()).Return(nil, errors.New("failed")).Times(1)
 
 	// act
 	err := suite.newTestFleetManager(client, storageService).Update(suite.ctx, expected.Id, expected.PlayerCount, metaData)

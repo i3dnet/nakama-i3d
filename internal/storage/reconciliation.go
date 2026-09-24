@@ -57,7 +57,8 @@ func SnapshotInScope(obj *api.StorageObject, applicationID, fleetID string) (boo
 
 // ReconcileGameSession applies exactly the version observed before the provider
 // scan. It deliberately does not retry conflicts on a newer allocation/admission.
-// A nil incoming value removes only that snapshot; a nil snapshot inserts only.
+// A nil incoming value removes only that snapshot. Without local state, the
+// provider view is returned without importing unknown admission capacity.
 func (fms *FleetManagerStorageService) ReconcileGameSession(ctx context.Context, snapshot *api.StorageObject, incoming *runtime.InstanceInfo, applicationID, fleetID string) error {
 	if snapshot == nil && incoming == nil {
 		return nil
@@ -77,23 +78,40 @@ func (fms *FleetManagerStorageService) ReconcileGameSession(ctx context.Context,
 		}
 		return err
 	}
-	version := "*"
-	record := &sessionRecord{InstanceInfo: &runtime.InstanceInfo{Id: incoming.Id}}
-	if snapshot != nil {
-		var err error
-		record, err = decodeRecord(snapshot.Value, snapshot.Key)
-		if err != nil {
+	// Sanitize provider-owned metadata even when it cannot be cached.
+	providerView := &runtime.InstanceInfo{Id: incoming.Id}
+	if err := MergeProviderInstance(providerView, incoming); err != nil {
+		return err
+	}
+	if snapshot == nil {
+		*incoming = *providerView
+		return nil
+	}
+	record, err := decodeRecord(snapshot.Value, snapshot.Key)
+	if err != nil {
+		return err
+	}
+	if snapshot.Version == "" || snapshot.Key != incoming.Id {
+		return fmt.Errorf("%w: invalid snapshot", ErrCorruptSession)
+	}
+	changedGeneration := !record.CreateTime.IsZero() && !incoming.CreateTime.IsZero() && !record.CreateTime.Equal(incoming.CreateTime)
+	if record.Status == staleProviderGeneration || (changedGeneration && incoming.CreateTime.After(record.CreateTime)) {
+		// Retire only the observed old record; a newer local write wins.
+		if err := fms.ReconcileGameSession(ctx, snapshot, nil, "", ""); err != nil {
 			return err
 		}
-		if snapshot.Version == "" || snapshot.Key != incoming.Id {
-			return fmt.Errorf("%w: invalid snapshot", ErrCorruptSession)
-		}
-		version = snapshot.Version
+		*incoming = *providerView
+		return nil
 	}
-	newGeneration := record.Local.Generation == "" || (!record.CreateTime.IsZero() && !incoming.CreateTime.IsZero() && !record.CreateTime.Equal(incoming.CreateTime))
+	if changedGeneration {
+		// An older provider view must not roll back a newer local generation.
+		*incoming = *record.InstanceInfo
+		return nil
+	}
 	if err := MergeProviderInstance(record.InstanceInfo, incoming); err != nil {
 		return err
 	}
+	newGeneration := record.Local.Generation == ""
 	if newGeneration {
 		record.Local = localState{Generation: uuid.NewString(), ApplicationID: applicationID, AllocatedAt: time.Now().UTC(), JoinedUsers: map[string]bool{}}
 	}
@@ -107,11 +125,11 @@ func (fms *FleetManagerStorageService) ReconcileGameSession(ctx context.Context,
 	if err != nil {
 		return err
 	}
-	if snapshot != nil && string(value) == snapshot.Value {
+	if string(value) == snapshot.Value {
 		*incoming = *record.InstanceInfo
 		return nil
 	}
-	_, err = fms.nk.StorageWrite(ctx, []*runtime.StorageWrite{{Collection: StorageI3dInstancesCollection, Key: incoming.Id, Version: version, Value: string(value), PermissionRead: 0, PermissionWrite: 0}})
+	_, err = fms.nk.StorageWrite(ctx, []*runtime.StorageWrite{{Collection: StorageI3dInstancesCollection, Key: incoming.Id, Version: snapshot.Version, Value: string(value), PermissionRead: 0, PermissionWrite: 0}})
 	if err == nil {
 		*incoming = *record.InstanceInfo
 	}

@@ -170,12 +170,12 @@ func TestReconciliationWorkerRecoversAndStops(t *testing.T) {
 		if calls.Add(1) == 1 {
 			return nil, errors.New("startup failure")
 		}
-		return &clients.ApplicationInstanceListResponse{Instances: []*runtime.InstanceInfo{{Id: "recovered", Status: "ALLOCATED"}}}, nil
+		return &clients.ApplicationInstanceListResponse{Instances: []*runtime.InstanceInfo{{Id: "instance", Status: "ALLOCATED", Metadata: map[string]any{"mode": "recovered"}}}}, nil
 	}).AnyTimes()
 	require.NoError(t, fm.Init(nk, &callbackRegistry{callbacks: map[string]runtime.FmCreateCallbackFn{}}))
 	require.Eventually(t, func() bool {
-		_, err := fm.storage.GetGameSessionFromStorage(context.Background(), "recovered")
-		return err == nil
+		instance, err := fm.storage.GetGameSessionFromStorage(context.Background(), "instance")
+		return err == nil && instance.Metadata["mode"] == "recovered"
 	}, time.Second, time.Millisecond)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()

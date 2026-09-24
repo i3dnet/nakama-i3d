@@ -54,7 +54,7 @@ func TestServerUpdateRPCUsesDocumentedPayload(t *testing.T) {
 	fm, client, cache, _, _ := createFixture(t)
 	metadata := map[string]any{"map": "arena"}
 	client.EXPECT().UpdateApplicationInstance(gomock.Any(), "instance", metadata).Return(&runtime.InstanceInfo{Id: "instance", Metadata: metadata}, nil)
-	cache.EXPECT().MutateGameSession(gomock.Any(), "instance", true, gomock.Any()).DoAndReturn(func(_ context.Context, _ string, _ bool, fn func(*runtime.InstanceInfo, map[string]bool) error) (*runtime.InstanceInfo, error) {
+	cache.EXPECT().MutateGameSession(gomock.Any(), "instance", false, gomock.Any()).DoAndReturn(func(_ context.Context, _ string, _ bool, fn func(*runtime.InstanceInfo, map[string]bool) error) (*runtime.InstanceInfo, error) {
 		instance := &runtime.InstanceInfo{Id: "instance"}
 		err := fn(instance, map[string]bool{})
 		require.NoError(t, err)

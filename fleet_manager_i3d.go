@@ -429,7 +429,7 @@ func (fm *I3dFleetManager) Update(ctx context.Context, id string, playerCount in
 		return err
 	}
 
-	_, err = fm.storage.MutateGameSession(ctx, id, true, func(stored *runtime.InstanceInfo, joined map[string]bool) error {
+	_, err = fm.storage.MutateGameSession(ctx, id, false, func(stored *runtime.InstanceInfo, joined map[string]bool) error {
 		if err := storage.MergeProviderInstance(stored, instance); err != nil {
 			return err
 		}
