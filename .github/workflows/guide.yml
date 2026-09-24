@@ -1,0 +1,24 @@
+name: Partner guide
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  guide:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.27.1'
+          cache: false
+      - name: Compile the actual guide examples
+        run: |
+          if [ -f go.mod ]; then
+            python3 scripts/check-docs.py
+          else
+            # Keep this pin aligned with online-docs.md until the runtime PR reaches main.
+            python3 scripts/check-docs.py 60cea4930eae7c464d6f4342663a6985ca9f0615
+          fi
