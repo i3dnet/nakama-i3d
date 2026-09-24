@@ -57,11 +57,6 @@ func (g *GameTest) StateHandler(ctx context.Context) {
 func (g *GameTest) ConnectHandler(ctx context.Context) {
 	log.Println("ConnectHandler...")
 
-	time.Sleep(1 * time.Second)
-	log.Println("Add match...")
-	g.cl.AddToMatch(g.ctx)
-
-	time.Sleep(1 * time.Second)
 	log.Println("joining match...")
 
 	err := g.cl.Join(g.ctx)

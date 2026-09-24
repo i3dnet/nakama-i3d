@@ -1,0 +1,14 @@
+shutdown_grace_sec: 15
+logger:
+  level: INFO
+matchmaker:
+  interval_sec: 1
+runtime:
+  env:
+    - "I3D_APPLICATION_ID=6268349608002583795"
+    - "I3D_BASE_URL=http://mock_server:8080"
+    - "I3D_ACCESS_TOKEN=test-token"
+    - "I3D_RECONCILE_INTERVAL=250ms"
+    - "I3D_RECONCILE_TIMEOUT=2s"
+    - "I3D_RECONCILE_GRACE_PERIOD=500ms"
+    - "I3D_ALLOCATION_TIMEOUT=500ms"
