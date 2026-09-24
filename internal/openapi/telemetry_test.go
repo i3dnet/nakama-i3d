@@ -43,7 +43,7 @@ func TestProviderTelemetryDoesNotLogBodiesOrCredentials(t *testing.T) {
 }
 
 func TestTelemetryRoutesWithDeploymentPrefixes(t *testing.T) {
-	for _, prefix := range []string{"", "/proxy/private-tenant", "/v3/applicationInstance/proxy"} {
+	for _, prefix := range []string{"", "/proxy/private-tenant", "/proxy%2Fprivate-tenant", "/v3/applicationInstance/proxy"} {
 		for _, tc := range []struct{ path, route string }{
 			{"/v3/applicationInstance", "/v3/applicationInstance"},
 			{"/v3/applicationInstance/", "/v3/applicationInstance"},
@@ -53,6 +53,12 @@ func TestTelemetryRoutesWithDeploymentPrefixes(t *testing.T) {
 			{"/v3/applicationInstance/unknown/nested/restart", "/other"},
 			{"/v3/applicationInstance/game/extra/private-app/empty/allocate", "/other"},
 			{"/v3/applicationInstances", "/other"},
+			{"/prefix-v3/applicationInstance/private-instance", "/other"},
+			{"/v3/applicationInstanceExtra/private-instance", "/other"},
+			{"/prefix%2Fv3/applicationInstance/private-instance", "/other"},
+			{"/v3%2FapplicationInstance/private-instance", "/other"},
+			{"/v3/applicationInstance/private-instance%2Frestart", "/v3/applicationInstance/{instanceId}"},
+			{"/v3/applicationInstance/private-instance%2Frestart/restart", "/v3/applicationInstance/{instanceId}/restart"},
 		} {
 			t.Run(prefix+tc.path, func(t *testing.T) {
 				var captured bytes.Buffer

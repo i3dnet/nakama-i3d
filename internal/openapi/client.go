@@ -340,7 +340,9 @@ func telemetryRoute(request *http.Request) string {
 	// Deployment URLs may contain a path prefix. Identify only the fixed API
 	// suffix; neither that prefix nor concrete IDs are emitted to telemetry.
 	const namespace = "/v3/applicationInstance"
-	path := request.URL.Path
+	// Keep encoded slashes inside IDs/prefix segments; URL.Path decodes them
+	// and can turn an ordinary request into an unrelated route template.
+	path := request.URL.EscapedPath()
 	start := strings.LastIndex(path, namespace)
 	if start < 0 {
 		return "/other"
