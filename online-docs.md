@@ -4,7 +4,7 @@
 >
 > This is a replacement draft for the [current i3D integration guide](https://heroiclabs.com/docs/nakama/guides/concepts/i3d-integration/). The implementation candidate targets Nakama 3.41.0 and has passed local unit/race checks, real plugin loading and the full lifecycle smoke test. It is in review; no release tag or production deployment has been published.
 >
-> The legacy main revision, `f26ac9d`, uses Nakama 3.26.0 / nakama-common 1.36.0 and a nested GitLab module path. This guide uses the implementation candidate commit `923907b5a28141f62a5739a61973caa128c3eed4`. Replace that pin with the approved release version after merging and staging validation. The final section lists the remaining publication gates.
+> The legacy main revision, `f26ac9d`, uses Nakama 3.26.0 / nakama-common 1.36.0 and a nested GitLab module path. This guide uses the implementation candidate commit `983f46c78e19656d86a3d7b6b069b3489a711cd7`. Replace that pin with the approved release version after merging and staging validation. The final section lists the remaining publication gates.
 
 Use Nakama to authenticate players and find matches, then allocate a dedicated game server through i3D.net. Players receive the server's connection details through a Nakama notification and connect directly using your game's networking transport.
 
@@ -29,7 +29,7 @@ The candidate has been tested with this exact combination:
 | nakama-common | 1.48.0 |
 | Go | 1.27.1 |
 | Shared protobuf dependency | 1.36.12 |
-| i3D integration | Candidate 923907b; release tag pending |
+| i3D integration | Candidate 983f46c; release tag pending |
 
 The dependency versions come from [Nakama 3.41.0's go.mod](https://github.com/heroiclabs/nakama/blob/v3.41.0/go.mod). The matching plugin loads in Nakama on Linux ARM64 locally; CI also builds and loads it on Linux AMD64. This does not establish compatibility with other runtime versions.
 
@@ -86,7 +86,7 @@ To evaluate the candidate, run these commands in your Go runtime project:
 # Only needed for a new project:
 go mod init example.com/nakama-i3d-game
 
-go get github.com/i3dnet/nakama-i3d@923907b5a28141f62a5739a61973caa128c3eed4
+go get github.com/i3dnet/nakama-i3d@983f46c78e19656d86a3d7b6b069b3489a711cd7
 go get github.com/heroiclabs/nakama-common@v1.48.0 google.golang.org/protobuf@v1.36.12
 ~~~
 

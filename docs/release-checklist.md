@@ -1,6 +1,6 @@
 # Release candidate checklist — 24 September 2026
 
-Implementation candidate: 923907b5a28141f62a5739a61973caa128c3eed4, publicly resolved as v0.0.0-20260924100124-923907b5a281. The initial main review used f26ac9d83ebb1a70f492db70b69eacf842403cb6. Upstream main is now 9a20297 after #8 was merged; this work has not merged PRs. The deployed artifact is unknown.
+Implementation candidate: 983f46c78e19656d86a3d7b6b069b3489a711cd7, publicly resolved as v0.0.0-20260924105049-983f46c78e19. The initial main review used f26ac9d83ebb1a70f492db70b69eacf842403cb6. Upstream main is now 9a20297 after #8 was merged; this work has not merged PRs. The deployed artifact is unknown.
 
 ## Review stack
 
@@ -37,6 +37,7 @@ Merge in order after review; each PR is based on the preceding branch. Do not re
 | [#38](https://github.com/i3dnet/nakama-i3d/pull/38) | All four modules and build/test tooling on Go 1.27.1; support dependency updates |
 | [#39](https://github.com/i3dnet/nakama-i3d/pull/39) | Independent persistence deadline, completed-result precedence, failed-allocation cleanup and fallback warning |
 | [#40](https://github.com/i3dnet/nakama-i3d/pull/40) | Current candidate pin, direct client dependency classification and September 24 review evidence |
+| [#41](https://github.com/i3dnet/nakama-i3d/pull/41) | Preserve escaped telemetry path segments and verify full review-summary follow-ups |
 
 PRs [#36](https://github.com/i3dnet/nakama-i3d/pull/36) and [#37](https://github.com/i3dnet/nakama-i3d/pull/37) are independent Dependabot changes against legacy main. Their own module, CI and Docker toolchains are aligned; their dependency updates are also incorporated in #38. They are not additional steps in this stack, and do not establish support for loading the new plugin into the legacy Nakama runtime.
 
@@ -51,7 +52,7 @@ Finding-by-finding evidence is recorded for [September 23](reviews/2026-09-23-co
 - [x] Actual storage-index sorting, tied player counts with descending creation times, and continuation pages. Sort fields use value.player_count and value.create_time.
 - [x] Provider multi-page reconciliation, missed termination without restart, invalid readiness, exactly one restart for a confirmed failed allocation, and bounded timeout without allocation retry.
 - [x] Unit regression coverage for completed-result precedence, fresh persistence and cleanup contexts, cleanup error reporting, callback lifetime/one terminal callback, failed provider pages, Create/Join/reallocation races, storage pagination boundaries and bounded clock skew, OAuth refresh and cancellation.
-- [x] Fresh public Go module cache, no clone/replace/private GitLab credentials: scripts/check-install.sh at 923907b resolves the pseudo-version above and compiles the real example.
+- [x] Fresh public Go module cache, no clone/replace/private GitLab credentials: scripts/check-install.sh at 983f46c resolves the pseudo-version above and compiles the real example.
 - [x] Partner guide Go files and filter block compiled/tested in an isolated consumer through scripts/check-docs.py. CI recompiles the actual Markdown blocks.
 - [x] Documented unwrapped JSON lifecycle payloads executed against Nakama's HTTP-key endpoint.
 - [x] Ordinary plugin builds exclude the i3d_smoke test RPCs.
