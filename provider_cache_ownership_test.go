@@ -143,7 +143,7 @@ func TestOlderProviderGenerationDoesNotReplaceLocalAdmission(t *testing.T) {
 			joined, err := fm.Join(context.Background(), "instance", []string{"player"}, nil)
 			require.NoError(t, err)
 			require.Len(t, joined.SessionInfo, 1)
-			require.Equal(t, created, joined.InstanceInfo.CreateTime)
+			require.WithinDuration(t, created, joined.InstanceInfo.CreateTime, 0)
 		})
 	}
 }
