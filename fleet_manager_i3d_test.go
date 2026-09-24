@@ -592,7 +592,8 @@ func (suite *FleetManagerSuite) TestUpdate_ShouldUpdate() {
 	storageService := tests.NewMockFleetManagerStorage(ctrl)
 	defer ctrl.Finish()
 
-	client.EXPECT().UpdateApplicationInstance(gomock.Any(), expected.Id, metaData).DoAndReturn(func(ctx context.Context, instanceID string, meta map[string]any) (*runtime.InstanceInfo, error) {
+	storageService.EXPECT().GetGameSessionFromStorage(gomock.Any(), expected.Id).Return(expected, nil)
+	client.EXPECT().UpdateApplicationInstance(gomock.Any(), expected.Id, playerCount, metaData).DoAndReturn(func(ctx context.Context, instanceID string, _ int, meta map[string]any) (*runtime.InstanceInfo, error) {
 		cp := *expected
 		cp.Metadata = meta
 		return &cp, nil
@@ -626,7 +627,8 @@ func (suite *FleetManagerSuite) TestUpdateGivenApiError_ShouldReturnError() {
 	storageService := tests.NewMockFleetManagerStorage(ctrl)
 	defer ctrl.Finish()
 
-	client.EXPECT().UpdateApplicationInstance(gomock.Any(), expected.Id, metaData).Return(nil, errors.New("failed")).Times(1)
+	storageService.EXPECT().GetGameSessionFromStorage(gomock.Any(), expected.Id).Return(expected, nil)
+	client.EXPECT().UpdateApplicationInstance(gomock.Any(), expected.Id, playerCount, metaData).Return(nil, errors.New("failed")).Times(1)
 	storageService.EXPECT().MutateGameSession(gomock.Any(), gomock.Any(), false, gomock.Any()).Return(nil, nil).Times(0)
 
 	// act
@@ -648,7 +650,8 @@ func (suite *FleetManagerSuite) TestUpdateGivenStorageError_ShouldReturnError() 
 	storageService := tests.NewMockFleetManagerStorage(ctrl)
 	defer ctrl.Finish()
 
-	client.EXPECT().UpdateApplicationInstance(gomock.Any(), expected.Id, metaData).Return(expected, nil).Times(1)
+	storageService.EXPECT().GetGameSessionFromStorage(gomock.Any(), expected.Id).Return(expected, nil)
+	client.EXPECT().UpdateApplicationInstance(gomock.Any(), expected.Id, playerCount, metaData).Return(expected, nil).Times(1)
 	storageService.EXPECT().MutateGameSession(gomock.Any(), expected.Id, false, gomock.Any()).Return(nil, errors.New("failed")).Times(1)
 
 	// act

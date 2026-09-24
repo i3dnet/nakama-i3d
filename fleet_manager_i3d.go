@@ -9,6 +9,7 @@ import (
 	config "github.com/i3dnet/nakama-i3d/config"
 	"github.com/i3dnet/nakama-i3d/internal/clients"
 	"github.com/i3dnet/nakama-i3d/internal/storage"
+	"math"
 	"strings"
 	"sync"
 	"time"
@@ -381,6 +382,9 @@ func (fm *I3dFleetManager) UpdateInstanceInfo(ctx context.Context, logger runtim
 	}
 
 	if err := fm.Update(ctx, request.Id, request.PlayerCount, request.Metadata); err != nil {
+		if errors.Is(err, ErrInvalidInput) {
+			return "", ErrInvalidInput
+		}
 		logger.WithField("error", err.Error()).Error("failed to update instance info")
 		return "", ErrInternalError
 	}
@@ -418,13 +422,25 @@ func (fm *I3dFleetManager) DeleteInstanceInfo(ctx context.Context, logger runtim
 
 // Update updates the instance in the Fleet Manager API
 func (fm *I3dFleetManager) Update(ctx context.Context, id string, playerCount int, metadata map[string]any) error {
-	if playerCount < 0 || strings.TrimSpace(id) == "" {
+	if playerCount < 0 || playerCount > math.MaxInt32 || strings.TrimSpace(id) == "" {
 		return ErrInvalidInput
 	}
 	fm.logger.WithField("method_name", "Update").Debug("FleetManager - Entered Update Method")
 	fm.logger.WithField("instance_id", id).Debug("processing update on api")
 
-	instance, err := fm.client.UpdateApplicationInstance(ctx, id, metadata)
+	stored, err := fm.storage.GetGameSessionFromStorage(ctx, id)
+	if err != nil {
+		return err
+	}
+	capacity, err := getMaxPlayers(stored)
+	if err != nil {
+		return err
+	}
+	if playerCount > capacity {
+		return ErrInvalidInput
+	}
+
+	instance, err := fm.client.UpdateApplicationInstance(ctx, id, playerCount, metadata)
 	if err != nil {
 		return err
 	}
@@ -432,6 +448,16 @@ func (fm *I3dFleetManager) Update(ctx context.Context, id string, playerCount in
 	_, err = fm.storage.MutateGameSession(ctx, id, false, func(stored *runtime.InstanceInfo, joined map[string]bool) error {
 		if err := storage.MergeProviderInstance(stored, instance); err != nil {
 			return err
+		}
+		// Capacity may have changed while the provider request was in flight or
+		// between versioned storage attempts. A new generation has no capacity
+		// to carry forward from this provider response and must not be overwritten.
+		capacity, err := getMaxPlayers(stored)
+		if err != nil {
+			return err
+		}
+		if playerCount > capacity {
+			return ErrInvalidInput
 		}
 		stored.PlayerCount = playerCount
 		// The authoritative report replaces the local admission estimate.

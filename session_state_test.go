@@ -165,7 +165,7 @@ func TestJoinReturnsOnlyAdmittedUsersWhenCapacityIsPartial(t *testing.T) {
 }
 func TestAuthoritativePlayerUpdatePreservesCapacity(t *testing.T) {
 	fm, _, client := sessionFixture(t, 1, 3)
-	client.EXPECT().UpdateApplicationInstance(gomock.Any(), "instance", map[string]any{"map": "arena"}).Return(&runtime.InstanceInfo{Id: "instance", Status: "ALLOCATED", Metadata: map[string]any{"map": "arena"}}, nil)
+	client.EXPECT().UpdateApplicationInstance(gomock.Any(), "instance", 2, map[string]any{"map": "arena"}).Return(&runtime.InstanceInfo{Id: "instance", Status: "ALLOCATED", Metadata: map[string]any{"map": "arena"}}, nil)
 	require.NoError(t, fm.Update(context.Background(), "instance", 2, map[string]any{"map": "arena"}))
 	stored, err := fm.storage.GetGameSessionFromStorage(context.Background(), "instance")
 	require.NoError(t, err)

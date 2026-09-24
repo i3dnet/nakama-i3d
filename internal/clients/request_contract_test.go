@@ -7,6 +7,7 @@ import (
 	"github.com/i3dnet/nakama-i3d/internal/openapi"
 	"github.com/i3dnet/nakama-i3d/internal/tests"
 	"github.com/stretchr/testify/require"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -75,11 +76,13 @@ func TestUpdateTargetsInstanceForReadAndWrite(t *testing.T) {
 		}
 		writeInstances(w, []openapi.ApplicationInstance{instance})
 	})
-	got, err := client.UpdateApplicationInstance(context.Background(), "instance-1", map[string]any{"map": "arena"})
+	got, err := client.UpdateApplicationInstance(context.Background(), "instance-1", 2, map[string]any{"map": "arena"})
 	require.NoError(t, err)
 	require.Equal(t, []string{"GET /v3/applicationInstance/instance-1", "PUT /v3/applicationInstance/instance-1"}, requests)
 	require.Equal(t, []openapi.Metadata{{Key: "map", Value: "arena"}}, update.Metadata)
 	require.Equal(t, "arena", got.Metadata["map"])
+	require.EqualValues(t, 2, update.NumPlayers)
+	require.Equal(t, 2, got.PlayerCount)
 }
 func TestEmptyProviderResponsesReturnErrors(t *testing.T) {
 	for _, operation := range []string{"get", "allocate", "update-get", "update-put"} {
@@ -99,7 +102,7 @@ func TestEmptyProviderResponsesReturnErrors(t *testing.T) {
 				case "allocate":
 					_, err = client.AllocateApplicationInstance(context.Background(), nil, "")
 				default:
-					_, err = client.UpdateApplicationInstance(context.Background(), "instance-1", nil)
+					_, err = client.UpdateApplicationInstance(context.Background(), "instance-1", 0, nil)
 				}
 				require.Error(t, err)
 			})
@@ -235,6 +238,21 @@ func TestAllocationErrorRetainsOnlyConfirmedAllocationIdentity(t *testing.T) {
 			} else {
 				require.Nil(t, got, "unconfirmed identity must never authorize restart")
 			}
+		})
+	}
+}
+
+func TestUpdateRejectsPlayerCountsOutsideProviderRange(t *testing.T) {
+	for _, count := range []int{-1, int(math.MaxInt32) + 1} {
+		t.Run(strconv.Itoa(count), func(t *testing.T) {
+			calls := 0
+			client := contractClient(t, func(w http.ResponseWriter, r *http.Request) {
+				calls++
+				writeInstances(w, []openapi.ApplicationInstance{validProviderInstance()})
+			})
+			_, err := client.UpdateApplicationInstance(context.Background(), "instance-1", count, nil)
+			require.Error(t, err)
+			require.Zero(t, calls)
 		})
 	}
 }

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/heroiclabs/nakama-common/runtime"
 	openapi "github.com/i3dnet/nakama-i3d/internal/openapi"
+	"math"
 	"net"
 	"sort"
 	"strconv"
@@ -28,7 +29,7 @@ type ApplicationInstance interface {
 	// owned by this request; the caller must reclaim it instead of exposing it.
 	AllocateApplicationInstance(ctx context.Context, metaData map[string]any, filters string) (*runtime.InstanceInfo, error)
 	RestartApplicationInstance(ctx context.Context, instanceID string) error
-	UpdateApplicationInstance(ctx context.Context, instanceID string, metaData map[string]any) (*runtime.InstanceInfo, error)
+	UpdateApplicationInstance(ctx context.Context, instanceID string, playerCount int, metaData map[string]any) (*runtime.InstanceInfo, error)
 }
 
 var ApplicationInstanceStatus = map[int32]string{
@@ -171,7 +172,10 @@ func (o *OneApiClient) RestartApplicationInstance(ctx context.Context, instanceI
 	return err
 }
 
-func (o *OneApiClient) UpdateApplicationInstance(ctx context.Context, instanceID string, metaData map[string]any) (*runtime.InstanceInfo, error) {
+func (o *OneApiClient) UpdateApplicationInstance(ctx context.Context, instanceID string, playerCount int, metaData map[string]any) (*runtime.InstanceInfo, error) {
+	if playerCount < 0 || playerCount > math.MaxInt32 {
+		return nil, fmt.Errorf("player count must be between 0 and %d", math.MaxInt32)
+	}
 	client, err := o.GetClient(ctx)
 	if err != nil {
 		return nil, err
@@ -189,6 +193,7 @@ func (o *OneApiClient) UpdateApplicationInstance(ctx context.Context, instanceID
 		return nil, fmt.Errorf("provider returned a different instance")
 	}
 	appInstance.Metadata = createMetaData(metaData).Metadata
+	appInstance.NumPlayers = int32(playerCount)
 
 	request := client.ApplicationInstanceAPI.UpdateApplicationInstance(ctx, instanceID).ApplicationInstance(appInstance)
 	updated, _, err := request.Execute()

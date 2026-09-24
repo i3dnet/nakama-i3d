@@ -556,7 +556,7 @@ func (suite *ApplicationInstanceTestSuite) TestUpdateApplicationInstance_success
 	metaData[key] = value
 
 	// act
-	appInstance, err := client.UpdateApplicationInstance(context.TODO(), instance.Id, metaData)
+	appInstance, err := client.UpdateApplicationInstance(context.TODO(), instance.Id, int(instance.NumPlayers), metaData)
 
 	// assert
 	suite.NoError(err)
@@ -606,7 +606,7 @@ func (suite *ApplicationInstanceTestSuite) TestUpdateApplicationInstance_failed(
 		client := suite.NewApiClient(newMockRoundTripper(response, nil), auth)
 
 		// act
-		appInstance, err := client.UpdateApplicationInstance(context.TODO(), instance.Id, metaData)
+		appInstance, err := client.UpdateApplicationInstance(context.TODO(), instance.Id, int(instance.NumPlayers), metaData)
 
 		// assert
 		suite.NotNil(err)

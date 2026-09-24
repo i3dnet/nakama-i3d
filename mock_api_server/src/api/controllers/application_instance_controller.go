@@ -185,6 +185,7 @@ func (gm *ApplicationInstanceController) Update(c *gin.Context) {
 		return
 	}
 	instance.Metadata = body.Metadata
+	instance.NumPlayers = body.NumPlayers
 	gm.updates++
 	c.JSON(200, []*models.ApplicationInstance{instance})
 }

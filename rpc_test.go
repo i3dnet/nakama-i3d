@@ -53,13 +53,15 @@ func TestLifecycleRPCRejectsInvalidPayloadWithoutSideEffects(t *testing.T) {
 func TestServerUpdateRPCUsesDocumentedPayload(t *testing.T) {
 	fm, client, cache, _, _ := createFixture(t)
 	metadata := map[string]any{"map": "arena"}
-	client.EXPECT().UpdateApplicationInstance(gomock.Any(), "instance", metadata).Return(&runtime.InstanceInfo{Id: "instance", Metadata: metadata}, nil)
+	cache.EXPECT().GetGameSessionFromStorage(gomock.Any(), "instance").Return(&runtime.InstanceInfo{Id: "instance", Metadata: map[string]any{MaxPlayers: 3}}, nil)
+	client.EXPECT().UpdateApplicationInstance(gomock.Any(), "instance", 3, metadata).Return(&runtime.InstanceInfo{Id: "instance", Metadata: metadata}, nil)
 	cache.EXPECT().MutateGameSession(gomock.Any(), "instance", false, gomock.Any()).DoAndReturn(func(_ context.Context, _ string, _ bool, fn func(*runtime.InstanceInfo, map[string]bool) error) (*runtime.InstanceInfo, error) {
-		instance := &runtime.InstanceInfo{Id: "instance"}
+		instance := &runtime.InstanceInfo{Id: "instance", Metadata: map[string]any{MaxPlayers: 3}}
 		err := fn(instance, map[string]bool{})
 		require.NoError(t, err)
 		require.Equal(t, 3, instance.PlayerCount)
-		require.Equal(t, metadata, instance.Metadata)
+		require.Equal(t, "arena", instance.Metadata["map"])
+		require.EqualValues(t, 3, instance.Metadata[MaxPlayers])
 		return instance, err
 	})
 	_, err := fm.UpdateInstanceInfo(context.Background(), fm.logger, nil, nil, `{"id":"instance","player_count":3,"metadata":{"map":"arena"}}`)
@@ -83,7 +85,8 @@ func TestLifecycleRPCControlsProviderErrors(t *testing.T) {
 				cache.EXPECT().GetGameSessionSnapshot(gomock.Any(), "instance").Return(nil, nil)
 				client.EXPECT().RestartApplicationInstance(gomock.Any(), "instance").Return(errors.New("provider failed"))
 			} else {
-				client.EXPECT().UpdateApplicationInstance(gomock.Any(), "instance", gomock.Any()).Return(nil, errors.New("provider failed"))
+				cache.EXPECT().GetGameSessionFromStorage(gomock.Any(), "instance").Return(&runtime.InstanceInfo{Id: "instance", Metadata: map[string]any{MaxPlayers: 3}}, nil)
+				client.EXPECT().UpdateApplicationInstance(gomock.Any(), "instance", 0, gomock.Any()).Return(nil, errors.New("provider failed"))
 			}
 			_, err := handler(context.Background(), fm.logger, nil, nil, `{"id":"instance"}`)
 			var runtimeErr *runtime.Error

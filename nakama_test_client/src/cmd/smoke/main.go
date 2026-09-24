@@ -224,6 +224,19 @@ func (h *harness) run() error {
 	if instance["player_count"] != float64(1) || metadata["map"] != "arena" || metadata["i3d_max_players"] != float64(2) {
 		return fmt.Errorf("lifecycle update lost state: %v", instance)
 	}
+	providerStatus, providerData, err := h.request("GET", h.provider+"/v3/applicationInstance/"+id, nil, "provider")
+	if err != nil {
+		return err
+	}
+	var updatedProvider []struct {
+		NumPlayers int `json:"numPlayers"`
+	}
+	if err := json.Unmarshal(providerData, &updatedProvider); err != nil {
+		return err
+	}
+	if providerStatus != 200 || len(updatedProvider) != 1 || updatedProvider[0].NumPlayers != 1 {
+		return fmt.Errorf("provider player count was not updated: HTTP %d: %s", providerStatus, providerData)
+	}
 	if _, err = h.rpc("delete_instance_info", map[string]any{"id": id}); err != nil {
 		return err
 	}

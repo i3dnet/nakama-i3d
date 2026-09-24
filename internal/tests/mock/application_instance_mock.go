@@ -198,18 +198,18 @@ func (c *MockApplicationInstanceRestartApplicationInstanceCall) DoAndReturn(f fu
 }
 
 // UpdateApplicationInstance mocks base method.
-func (m *MockApplicationInstance) UpdateApplicationInstance(ctx context.Context, instanceID string, metaData map[string]any) (*runtime.InstanceInfo, error) {
+func (m *MockApplicationInstance) UpdateApplicationInstance(ctx context.Context, instanceID string, playerCount int, metaData map[string]any) (*runtime.InstanceInfo, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateApplicationInstance", ctx, instanceID, metaData)
+	ret := m.ctrl.Call(m, "UpdateApplicationInstance", ctx, instanceID, playerCount, metaData)
 	ret0, _ := ret[0].(*runtime.InstanceInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // UpdateApplicationInstance indicates an expected call of UpdateApplicationInstance.
-func (mr *MockApplicationInstanceMockRecorder) UpdateApplicationInstance(ctx, instanceID, metaData any) *MockApplicationInstanceUpdateApplicationInstanceCall {
+func (mr *MockApplicationInstanceMockRecorder) UpdateApplicationInstance(ctx, instanceID, playerCount, metaData any) *MockApplicationInstanceUpdateApplicationInstanceCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateApplicationInstance", reflect.TypeOf((*MockApplicationInstance)(nil).UpdateApplicationInstance), ctx, instanceID, metaData)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateApplicationInstance", reflect.TypeOf((*MockApplicationInstance)(nil).UpdateApplicationInstance), ctx, instanceID, playerCount, metaData)
 	return &MockApplicationInstanceUpdateApplicationInstanceCall{Call: call}
 }
 
@@ -225,13 +225,13 @@ func (c *MockApplicationInstanceUpdateApplicationInstanceCall) Return(arg0 *runt
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationInstanceUpdateApplicationInstanceCall) Do(f func(context.Context, string, map[string]any) (*runtime.InstanceInfo, error)) *MockApplicationInstanceUpdateApplicationInstanceCall {
+func (c *MockApplicationInstanceUpdateApplicationInstanceCall) Do(f func(context.Context, string, int, map[string]any) (*runtime.InstanceInfo, error)) *MockApplicationInstanceUpdateApplicationInstanceCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationInstanceUpdateApplicationInstanceCall) DoAndReturn(f func(context.Context, string, map[string]any) (*runtime.InstanceInfo, error)) *MockApplicationInstanceUpdateApplicationInstanceCall {
+func (c *MockApplicationInstanceUpdateApplicationInstanceCall) DoAndReturn(f func(context.Context, string, int, map[string]any) (*runtime.InstanceInfo, error)) *MockApplicationInstanceUpdateApplicationInstanceCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

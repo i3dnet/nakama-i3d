@@ -329,7 +329,7 @@ func (a *BuildProvisioningAPIService) GetBuildProvisioningStorageFilesByRegistra
 		return localVarReturnValue, nil, &GenericOpenAPIError{error: err.Error()}
 	}
 
-	localVarPath := localBasePath + "/v3/buildProvisioning/storage/registration/{buildProvisioningRegistrationId}/file"
+	localVarPath := localBasePath + "/v3/buildProvisioning/storage/registration/{buildProvisionRegistrationId}/file"
 	localVarPath = strings.Replace(localVarPath, "{"+"buildProvisionRegistrationId"+"}", url.PathEscape(parameterValueToString(r.buildProvisionRegistrationId, "buildProvisionRegistrationId")), -1)
 
 	localVarHeaderParams := make(map[string]string)

@@ -30,6 +30,7 @@ func TestQuotedFilterConjunctions(t *testing.T) {
 func controllerRequest(controller *ApplicationInstanceController, method, path, body string, headers map[string]string) *httptest.ResponseRecorder {
 	router := gin.New()
 	router.GET("/v3/applicationInstance", controller.List)
+	router.PUT("/v3/applicationInstance/:instanceId", controller.Update)
 	router.PUT("/v3/applicationInstance/game/:applicationId/empty/allocate", controller.Create)
 	req := httptest.NewRequest(method, path, strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
@@ -132,5 +133,32 @@ func TestExpiredPaginationTokenIsRejected(t *testing.T) {
 	}
 	if _, ok := controller.pages[token]; ok {
 		t.Fatal("expired snapshot retained")
+	}
+}
+
+func TestUpdatePersistsReportedPlayerCount(t *testing.T) {
+	for _, count := range []int{0, 3} {
+		t.Run(strconv.Itoa(count), func(t *testing.T) {
+			controller := NewApplicationInstanceController()
+			instance := controller.instances["723709572903"]
+			instance.NumPlayers = 1
+			update := *instance
+			update.NumPlayers = count
+			body, err := json.Marshal(update)
+			if err != nil {
+				t.Fatal(err)
+			}
+			response := controllerRequest(controller, "PUT", "/v3/applicationInstance/"+instance.Id, string(body), nil)
+			if response.Code != 200 {
+				t.Fatal(response.Code, response.Body.String())
+			}
+			var returned []models.ApplicationInstance
+			if err := json.Unmarshal(response.Body.Bytes(), &returned); err != nil {
+				t.Fatal(err)
+			}
+			if instance.NumPlayers != count || len(returned) != 1 || returned[0].NumPlayers != count {
+				t.Fatalf("player count: stored %d, response %s, want %d", instance.NumPlayers, response.Body, count)
+			}
+		})
 	}
 }

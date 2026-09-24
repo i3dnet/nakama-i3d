@@ -12,6 +12,7 @@ services:
       timeout: 3s
       retries: 30
   nakama:
+    stop_grace_period: 60s
     ports:
       - "127.0.0.1::7350"
     build:

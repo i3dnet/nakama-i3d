@@ -10277,7 +10277,7 @@ paths:
       summary: Get the details of the file in the storage
       tags:
       - BuildProvisioning
-  /v3/buildProvisioning/storage/registration/{buildProvisioningRegistrationId}/file:
+  /v3/buildProvisioning/storage/registration/{buildProvisionRegistrationId}/file:
     get:
       operationId: getBuildProvisioningStorageFilesByRegistrationId
       parameters:
