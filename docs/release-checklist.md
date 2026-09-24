@@ -1,6 +1,6 @@
 # Release candidate checklist — 24 September 2026
 
-Implementation candidate: ea550dca74da3610e78a2892317d3a2045e89001, publicly resolved as v0.0.0-20260924145139-ea550dca74da. The initial main review used f26ac9d83ebb1a70f492db70b69eacf842403cb6. Upstream main is now 9a20297 after #8 was merged; this work has not merged PRs. The deployed artifact is unknown.
+Implementation candidate: 987fc15e0af46b32ade3db1b6f78728226ea121e, publicly resolved as v0.0.0-20260924152513-987fc15e0af4. The initial main review used f26ac9d83ebb1a70f492db70b69eacf842403cb6. Upstream main is now 9a20297 after #8 was merged; this work has not merged PRs. The deployed artifact is unknown.
 
 ## Review layout
 
@@ -24,13 +24,25 @@ The [superseded stack map](reviews/2026-09-24-superseded-pr-stack.md) retains th
 - [x] Actual storage-index sorting, tied player counts with descending creation times, and continuation pages. Sort fields use value.player_count and value.create_time.
 - [x] Provider multi-page reconciliation, missed termination without restart, invalid readiness, exactly one restart for a confirmed failed allocation, and bounded timeout without allocation retry.
 - [x] Unit regression coverage for completed-result precedence, fresh persistence and cleanup contexts, cleanup error reporting, callback lifetime/one terminal callback, failed provider pages, Create/Join/reallocation races, storage pagination boundaries and bounded clock skew, OAuth refresh and cancellation.
-- [x] Fresh public Go module cache, no clone/replace/private GitLab credentials: scripts/check-install.sh at ea550dc resolves the pseudo-version above and compiles the real example.
+- [x] Fresh public Go module cache, no clone/replace/private GitLab credentials: scripts/check-install.sh at 987fc15 resolves the pseudo-version above and compiles the real example.
 - [x] Partner guide Go files and filter block compiled/tested in an isolated consumer through scripts/check-docs.py. CI recompiles the actual Markdown blocks.
 - [x] Documented unwrapped JSON lifecycle payloads executed against Nakama's HTTP-key endpoint.
 - [x] Ordinary plugin builds exclude the i3d_smoke test RPCs.
 - [x] The exact prior online-docs draft is preserved at docs/drafts/2026-09-22-online-docs.previous.md (SHA-256 adc77c712904519e38efa7ead11df0f6913102e27bf2d0dc09f2b1ee4853cafa).
 
 The active organization ruleset requires a PR, one approval, code-owner review, last-push approval and resolved conversations, with linear history and no force pushes on the default branch. Its rules do not require named CI checks. The legacy branch-protection endpoint returns “Branch not protected”; the organization ruleset still applies. No repository/ruleset settings were changed. Require the new CI checks before release through the normal owner review process.
+
+## Balanced review follow-up
+
+The runtime follow-up at 987fc15 addresses the three findings in [Copilot's review of #42](https://github.com/i3dnet/nakama-i3d/pull/42#pullrequestreview-5306278771):
+
+| Finding | Fix and verification |
+| --- | --- |
+| [Provider-only allocations lack recoverable capacity](https://github.com/i3dnet/nakama-i3d/pull/42#discussion_r4095147495) | Get/List/reconciliation return provider-only discovery without importing it. Update requires an existing session. Tests verify no storage writes/imports and refusal of Join. |
+| [Canceled OAuth refresh leader fails live waiters](https://github.com/i3dnet/nakama-i3d/pull/42#discussion_r4095147568) | Live waiters share a replacement refresh; each waiter keeps its own cancellation. Deterministic tests cover leader cancellation/deadline, provider failures and a canceled waiter racing success. |
+| [List cache records lose cleanup ownership](https://github.com/i3dnet/nakama-i3d/pull/42#discussion_r4095147617) | Unknown records are not cached. A replaced generation retains ownership while invalidated or is conditionally retired. Tests cover mixed pages, cleanup, repeated reads, older provider generations and a delayed Update that must not revive admission. |
+
+The full root race suite, vet, real Nakama/PostgreSQL lifecycle smoke and fresh public consumer installation passed after these fixes. The guide's dependency pin and behavior documentation track that commit. Fresh current-head Copilot Balanced review and CI remain separate review gates.
 
 ## Remaining release gates
 
