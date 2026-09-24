@@ -1,6 +1,6 @@
 # Local verification
 
-Run the root tests with Go 1.27.1: go test -mod=readonly -race -count=1 ./... and go vet -mod=readonly ./.... Run the same commands in plugin/example/src. The mock_api_server/src and nakama_test_client/src modules use Go 1.24.1.
+Run the root tests with Go 1.27.1: go test -mod=readonly -race -count=1 ./... and go vet -mod=readonly ./.... Run the same commands in plugin/example/src. All four modules, support images and smoke tooling use Go 1.27.1.
 
 sh scripts/check-plugin.sh builds and loads the normal plugin in Nakama 3.41.0 and tests lifecycle RPC authentication. python3 scripts/check-smoke-cleanup.py exercises failure cleanup with fake tools and never starts containers. sh scripts/smoke.sh runs the full scenario with Docker Compose, Python 3 and Go installed. Each script creates its own Compose project with random localhost ports and a temporary PostgreSQL database, and cleans up only that project.
 

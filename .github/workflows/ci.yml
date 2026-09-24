@@ -18,10 +18,10 @@ jobs:
             go: '1.27.1'
             race: '-race'
           - module: mock_api_server/src
-            go: '1.24.1'
+            go: '1.27.1'
             race: '-race'
           - module: nakama_test_client/src
-            go: '1.24.1'
+            go: '1.27.1'
             race: '-race'
     defaults:
       run:
@@ -51,7 +51,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.24.1'
+          go-version: '1.27.1'
           cache-dependency-path: nakama_test_client/src/go.sum
       - run: python3 scripts/check-smoke-cleanup.py
       - run: sh scripts/smoke.sh
