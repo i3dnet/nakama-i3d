@@ -422,10 +422,10 @@ func (fm *I3dFleetManager) DeleteInstanceInfo(ctx context.Context, logger runtim
 
 // Update updates the instance in the Fleet Manager API
 func (fm *I3dFleetManager) Update(ctx context.Context, id string, playerCount int, metadata map[string]any) error {
+	fm.logger.WithField("method_name", "Update").Debug("FleetManager - Entered Update Method")
 	if playerCount < 0 || playerCount > math.MaxInt32 || strings.TrimSpace(id) == "" {
 		return ErrInvalidInput
 	}
-	fm.logger.WithField("method_name", "Update").Debug("FleetManager - Entered Update Method")
 	fm.logger.WithField("instance_id", id).Debug("processing update on api")
 
 	stored, err := fm.storage.GetGameSessionFromStorage(ctx, id)

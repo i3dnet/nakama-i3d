@@ -45,7 +45,10 @@ func (r *RetryExecutor) Run(ctx context.Context, attempts int, fn func() error) 
 			return ctx.Err()
 		case <-timer.C:
 		}
-		if delay > r.maxDelay/2 {
+		if delay == 0 && r.maxDelay > 0 {
+			// Keep the first retry immediate, then seed bounded exponential backoff.
+			delay = min(time.Millisecond, r.maxDelay)
+		} else if delay > r.maxDelay/2 {
 			delay = r.maxDelay
 		} else {
 			delay *= 2
