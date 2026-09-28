@@ -1,6 +1,6 @@
 # Release candidate checklist — 24 September 2026
 
-Implementation candidate: 60cea4930eae7c464d6f4342663a6985ca9f0615, publicly resolved as v0.0.0-20260924154401-60cea4930eae. The initial main review used f26ac9d83ebb1a70f492db70b69eacf842403cb6. Upstream main is now 9a20297 after #8 was merged; this work has not merged PRs. The deployed artifact is unknown.
+Implementation candidate: 94c69e0e6933795d33a34dc06759632da1fe5895, publicly resolved as v0.0.0-20260928123344-94c69e0e6933. The initial main review used f26ac9d83ebb1a70f492db70b69eacf842403cb6. Upstream main is now 9a20297 after #8 was merged; this work has not merged PRs. The deployed artifact is unknown.
 
 ## Review layout
 
@@ -24,7 +24,7 @@ The [superseded stack map](reviews/2026-09-24-superseded-pr-stack.md) retains th
 - [x] Actual storage-index sorting, tied player counts with descending creation times, and continuation pages. Sort fields use value.player_count and value.create_time.
 - [x] Provider multi-page reconciliation, missed termination without restart, invalid readiness, exactly one restart for a confirmed failed allocation, and bounded timeout without allocation retry.
 - [x] Unit regression coverage for completed-result precedence, fresh persistence and cleanup contexts, cleanup error reporting, callback lifetime/one terminal callback, failed provider pages, Create/Join/reallocation races, storage pagination boundaries and bounded clock skew, OAuth refresh and cancellation.
-- [x] Fresh public Go module cache, no clone/replace/private GitLab credentials: scripts/check-install.sh at 60cea49 resolves the pseudo-version above and compiles the real example.
+- [x] Fresh public Go module cache, no clone/replace/private GitLab credentials: scripts/check-install.sh at 94c69e0 resolves the pseudo-version above and compiles the real example.
 - [x] Partner guide Go files and filter block compiled/tested in an isolated consumer through scripts/check-docs.py. CI recompiles the actual Markdown blocks.
 - [x] Documented unwrapped JSON lifecycle payloads executed against Nakama's HTTP-key endpoint.
 - [x] Ordinary plugin builds exclude the i3d_smoke test RPCs.
@@ -57,7 +57,11 @@ The [next runtime Balanced review](https://github.com/i3dnet/nakama-i3d/pull/42#
 
 The additional runtime fixes are included in 60cea49. Root and mock-provider race suites and vet pass with TZ=UTC; the generated endpoint HTTP capture and real Nakama/PostgreSQL lifecycle smoke pass, including provider player-count propagation. Fresh public consumer installation resolves the candidate above and builds the real example without replace.
 
+On 28 September, Patrick's entry-log feedback moved the Update method-entry event before input validation. His zero-delay backoff finding now has deterministic coverage for positive, submillisecond and disabled maxima. The test-client protobuf requirement is aligned to 1.36.12. The generation findings above remain separate unresolved provider-contract blockers.
+
 ## Remaining release gates
+
+- [ ] Resolve the two [lifecycle allocation-identity blockers](reviews/2026-09-28-lifecycle-generation-blockers.md). The bundled provider API has no confirmed atomic generation condition for updates/restarts; local storage guards cannot protect reused server IDs. These review threads remain open.
 
 - [ ] Complete human review and merge both replacement PRs. No PR has been merged by this work.
 - [ ] Choose the first public root-module version. The repository has no tags; v0.1.0 is proposed, not created.

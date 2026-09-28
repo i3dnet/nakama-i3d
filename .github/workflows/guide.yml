@@ -20,5 +20,5 @@ jobs:
             python3 scripts/check-docs.py
           else
             # Keep this pin aligned with online-docs.md until the runtime PR reaches main.
-            python3 scripts/check-docs.py 60cea4930eae7c464d6f4342663a6985ca9f0615
+            python3 scripts/check-docs.py 94c69e0e6933795d33a34dc06759632da1fe5895
           fi

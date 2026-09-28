@@ -4,7 +4,7 @@
 >
 > This is a replacement draft for the [current i3D integration guide](https://heroiclabs.com/docs/nakama/guides/concepts/i3d-integration/). The implementation candidate targets Nakama 3.41.0 and has passed local unit/race checks, real plugin loading and the full lifecycle smoke test. It is in review; no release tag or production deployment has been published.
 >
-> The legacy main revision, `9a20297`, uses Nakama 3.26.0 / nakama-common 1.36.0 and a nested GitLab module path. This guide uses the implementation candidate commit `60cea4930eae7c464d6f4342663a6985ca9f0615`. Replace that pin with the approved release version after merging and staging validation. The final section lists the remaining publication gates.
+> The legacy main revision, `9a20297`, uses Nakama 3.26.0 / nakama-common 1.36.0 and a nested GitLab module path. This guide uses the implementation candidate commit `94c69e0e6933795d33a34dc06759632da1fe5895`. Replace that pin with the approved release version after merging and staging validation. The final section lists the remaining publication gates.
 
 Use Nakama to authenticate players and find matches, then allocate a dedicated game server through i3D.net. Players receive the server's connection details through a Nakama notification and connect directly using your game's networking transport.
 
@@ -29,7 +29,7 @@ The candidate has been tested with this exact combination:
 | nakama-common | 1.48.0 |
 | Go | 1.27.1 |
 | Shared protobuf dependency | 1.36.12 |
-| i3D integration | Candidate 60cea49; release tag pending |
+| i3D integration | Candidate 94c69e0; release tag pending |
 
 The dependency versions come from [Nakama 3.41.0's go.mod](https://github.com/heroiclabs/nakama/blob/v3.41.0/go.mod). The matching plugin loads in Nakama on Linux ARM64 locally; CI also builds and loads it on Linux AMD64. This does not establish compatibility with other runtime versions.
 
@@ -86,7 +86,7 @@ To evaluate the candidate, run these commands in your Go runtime project:
 # Only needed for a new project:
 go mod init example.com/nakama-i3d-game
 
-go get github.com/i3dnet/nakama-i3d@60cea4930eae7c464d6f4342663a6985ca9f0615
+go get github.com/i3dnet/nakama-i3d@94c69e0e6933795d33a34dc06759632da1fe5895
 go get github.com/heroiclabs/nakama-common@v1.48.0 google.golang.org/protobuf@v1.36.12
 ~~~
 
@@ -432,6 +432,8 @@ Always use the connection details returned for the next allocation. Address or p
 The adapter takes a complete storage snapshot, then scans every provider page for the configured application/fleet. Failed or partial scans cannot establish absence. Records allocated or updated since the pass start minus I3D_RECONCILE_CLOCK_SKEW are excluded from that pass, including records encountered on later storage pages. Configure this window to cover the maximum relative clock skew between Nakama nodes and storage, plus timestamp precision; it does not protect against unbounded clock drift. Absence-based cleanup removes old records with known scope only after two complete observations with unchanged storage versions; concurrent allocations and joins win conflicts. Legacy records with unknown scope are retained when absent. Provider-visible records can establish scope when refreshed. Reconciliation repairs storage only and never restarts an instance.
 
 Absence remains an eventual-consistency assumption: choose a grace period longer than observed provider propagation delays, or disable reconciliation if successful listings cannot reliably establish absence. Continue sending lifecycle reports promptly. Application overrides need a separately scoped reconciliation worker. Graceful shutdown stops background work; clients still need recovery after server crashes.
+
+The current candidate has an unresolved allocation-identity race: delayed lifecycle requests carry only the application-instance ID and can affect a later allocation that reuses it. Local storage version checks cannot undo provider updates or restarts. An atomic provider condition, or a proven policy preventing reuse during these calls, is a release gate. See the [open lifecycle review blockers](docs/reviews/2026-09-28-lifecycle-generation-blockers.md).
 
 ## Get, list, and join sessions
 
