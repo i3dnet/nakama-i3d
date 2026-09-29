@@ -1,6 +1,6 @@
 # Release candidate checklist — updated 29 September 2026
 
-Implementation candidate: ab4a6f60034d8bf78066b4da235251476920e7a2, publicly resolved as v0.0.0-20260929091528-ab4a6f60034d. The initial main review used f26ac9d83ebb1a70f492db70b69eacf842403cb6. Upstream main is now 9a20297 after #8 was merged; this work has not merged PRs. The deployed artifact is unknown.
+Implementation candidate: 25bb29b6dcf8e44b346b76c2cef8e9874acf9ddb, publicly resolved as v0.0.0-20260929092906-25bb29b6dcf8. The initial main review used f26ac9d83ebb1a70f492db70b69eacf842403cb6. Upstream main is now 9a20297 after #8 was merged; this work has not merged PRs. The deployed artifact is unknown.
 
 ## Review layout
 
@@ -24,7 +24,7 @@ The [superseded stack map](reviews/2026-09-24-superseded-pr-stack.md) retains th
 - [x] Actual storage-index sorting, tied player counts with descending creation times, and continuation pages. Sort fields use value.player_count and value.create_time.
 - [x] Provider multi-page reconciliation, missed termination without restart, invalid readiness, exactly one restart for a confirmed failed allocation, and bounded timeout without allocation retry.
 - [x] Unit regression coverage for completed-result precedence, fresh persistence and cleanup contexts, cleanup error reporting, callback lifetime/one terminal callback, failed provider pages, Create/Join/reallocation races, storage pagination boundaries and bounded clock skew, OAuth refresh and cancellation.
-- [x] Fresh public Go module cache, no clone/replace/private GitLab credentials: scripts/check-install.sh at ab4a6f6 resolves the pseudo-version above and compiles the real example.
+- [x] Fresh public Go module cache, no clone/replace/private GitLab credentials: scripts/check-install.sh at 25bb29b resolves the pseudo-version above and compiles the real example.
 - [x] Partner guide Go files and filter block compiled/tested in an isolated consumer through scripts/check-docs.py. CI recompiles the actual Markdown blocks.
 - [x] Documented unwrapped JSON lifecycle payloads executed against Nakama's HTTP-key endpoint.
 - [x] Ordinary plugin builds exclude the i3d_smoke test RPCs.
@@ -65,6 +65,8 @@ The [lifecycle assessment](reviews/2026-09-28-lifecycle-generation-blockers.md) 
 
 There is no staging environment. Validation uses local unit/race tests, HTTP capture and a contract mock, with real Nakama/PostgreSQL containers loading the plugin; CI repeats these checks. No live i3D operation has been executed. Host-agent timing, Arcus delivery and real propagation delay remain unverified. The earlier assertion that a new conditional provider API must exist before release is superseded; the open review threads still require an explicit maintainer disposition.
 
+The September 29 Balanced follow-up also found a generated telemetry route with an unsubstituted path identifier. The same source-schema omission affected 14 generated operations. Their required parameters and escaped URL substitutions are now covered by captured HTTP requests; all 14 regressions failed before the correction and pass afterward. The root race suite and vet pass. The four documentation follow-ups (workflow pin, compatibility count statement, partner candidate and guide table) are corrected together.
+
 ## Remaining release gates
 
 - [ ] Have the maintainer disposition the two [lifecycle review threads](reviews/2026-09-28-lifecycle-generation-blockers.md) against the documented single-owner release sequence. They remain open; this change does not claim stale caller protection across independent release/reallocation.
@@ -73,7 +75,7 @@ There is no staging environment. Validation uses local unit/race tests, HTTP cap
 - [ ] Choose the first public root-module version. The repository has no tags; v0.1.0 is proposed, not created.
 - [ ] Identify the live commit/image digest, Nakama version, runtime/process configuration source, application/fleet and headless-server authentication.
 - [ ] Confirm whether a security backport is needed for an existing 3.26 deployment. A 3.41 plugin cannot be substituted into the old runtime.
-- [x] Run the local test/race/vet, plugin build/load, guide compilation and allocation/update/release/reuse smoke checks for candidate ab4a6f6. Repeat if the runtime changes.
+- [x] Run the local test/race/vet, plugin build/load, guide compilation and allocation/update/release/reuse smoke checks for candidate 25bb29b. Repeat if the runtime changes.
 - [ ] Review timeout and reconciliation settings for the intended rollout. There are no staging measurements; two successful but incomplete provider scans can still falsely imply absence. Disable absence-based reconciliation if its consistency assumptions are not acceptable.
 - [ ] Retain the previous runtime/plugin image and configuration, take the normal database backup, document the rollout owner and rollback steps.
 - [ ] Review stored-session compatibility before rolling back: old records remain readable, but older code ignores new admission/version semantics and is not safe for concurrent mixed-version writers.
