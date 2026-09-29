@@ -17,16 +17,18 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 )
 
 // ApplicationTelemetryAPIService ApplicationTelemetryAPI service
 type ApplicationTelemetryAPIService service
 
 type ApiGetTelemetryApplicationRequest struct {
-	ctx        context.Context
-	ApiService *ApplicationTelemetryAPIService
-	startTime  *int32
-	endTime    *int32
+	applicationId string
+	ctx           context.Context
+	ApiService    *ApplicationTelemetryAPIService
+	startTime     *int32
+	endTime       *int32
 }
 
 // Unix timestamp. Filter from time, default value is -1 day
@@ -51,10 +53,11 @@ GetTelemetryApplication Get all your application telemetry history
 	@param ctx context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
 	@return ApiGetTelemetryApplicationRequest
 */
-func (a *ApplicationTelemetryAPIService) GetTelemetryApplication(ctx context.Context) ApiGetTelemetryApplicationRequest {
+func (a *ApplicationTelemetryAPIService) GetTelemetryApplication(ctx context.Context, applicationId string) ApiGetTelemetryApplicationRequest {
 	return ApiGetTelemetryApplicationRequest{
-		ApiService: a,
-		ctx:        ctx,
+		applicationId: applicationId,
+		ApiService:    a,
+		ctx:           ctx,
 	}
 }
 
@@ -75,6 +78,7 @@ func (a *ApplicationTelemetryAPIService) GetTelemetryApplicationExecute(r ApiGet
 	}
 
 	localVarPath := localBasePath + "/v3/telemetry/application/{applicationId}"
+	localVarPath = strings.Replace(localVarPath, "{applicationId}", url.PathEscape(parameterValueToString(r.applicationId, "applicationId")), -1)
 
 	localVarHeaderParams := make(map[string]string)
 	localVarQueryParams := url.Values{}
@@ -165,8 +169,9 @@ func (a *ApplicationTelemetryAPIService) GetTelemetryApplicationExecute(r ApiGet
 }
 
 type ApiGetTelemetryApplicationCurrentsRequest struct {
-	ctx        context.Context
-	ApiService *ApplicationTelemetryAPIService
+	applicationId string
+	ctx           context.Context
+	ApiService    *ApplicationTelemetryAPIService
 }
 
 func (r ApiGetTelemetryApplicationCurrentsRequest) Execute() ([]ApplicationTelemetryModel, *http.Response, error) {
@@ -179,10 +184,11 @@ GetTelemetryApplicationCurrents Get all your application telemetry
 	@param ctx context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
 	@return ApiGetTelemetryApplicationCurrentsRequest
 */
-func (a *ApplicationTelemetryAPIService) GetTelemetryApplicationCurrents(ctx context.Context) ApiGetTelemetryApplicationCurrentsRequest {
+func (a *ApplicationTelemetryAPIService) GetTelemetryApplicationCurrents(ctx context.Context, applicationId string) ApiGetTelemetryApplicationCurrentsRequest {
 	return ApiGetTelemetryApplicationCurrentsRequest{
-		ApiService: a,
-		ctx:        ctx,
+		applicationId: applicationId,
+		ApiService:    a,
+		ctx:           ctx,
 	}
 }
 
@@ -203,6 +209,7 @@ func (a *ApplicationTelemetryAPIService) GetTelemetryApplicationCurrentsExecute(
 	}
 
 	localVarPath := localBasePath + "/v3/telemetry/application/{applicationId}/current"
+	localVarPath = strings.Replace(localVarPath, "{applicationId}", url.PathEscape(parameterValueToString(r.applicationId, "applicationId")), -1)
 
 	localVarHeaderParams := make(map[string]string)
 	localVarQueryParams := url.Values{}

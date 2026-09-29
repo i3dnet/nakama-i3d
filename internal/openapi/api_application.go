@@ -914,8 +914,9 @@ func (a *ApplicationAPIService) GetApplicationApplicationBuildsExecute(r ApiGetA
 }
 
 type ApiGetApplicationDeploymentEnvironmentsRequest struct {
-	ctx        context.Context
-	ApiService *ApplicationAPIService
+	applicationId string
+	ctx           context.Context
+	ApiService    *ApplicationAPIService
 }
 
 func (r ApiGetApplicationDeploymentEnvironmentsRequest) Execute() ([]DeploymentEnvironment, *http.Response, error) {
@@ -928,10 +929,11 @@ GetApplicationDeploymentEnvironments Get the list of deployment environment usin
 	@param ctx context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
 	@return ApiGetApplicationDeploymentEnvironmentsRequest
 */
-func (a *ApplicationAPIService) GetApplicationDeploymentEnvironments(ctx context.Context) ApiGetApplicationDeploymentEnvironmentsRequest {
+func (a *ApplicationAPIService) GetApplicationDeploymentEnvironments(ctx context.Context, applicationId string) ApiGetApplicationDeploymentEnvironmentsRequest {
 	return ApiGetApplicationDeploymentEnvironmentsRequest{
-		ApiService: a,
-		ctx:        ctx,
+		applicationId: applicationId,
+		ApiService:    a,
+		ctx:           ctx,
 	}
 }
 
@@ -952,6 +954,7 @@ func (a *ApplicationAPIService) GetApplicationDeploymentEnvironmentsExecute(r Ap
 	}
 
 	localVarPath := localBasePath + "/v3/application/{applicationId}/deploymentEnvironment"
+	localVarPath = strings.Replace(localVarPath, "{applicationId}", url.PathEscape(parameterValueToString(r.applicationId, "applicationId")), -1)
 
 	localVarHeaderParams := make(map[string]string)
 	localVarQueryParams := url.Values{}
@@ -1036,8 +1039,9 @@ func (a *ApplicationAPIService) GetApplicationDeploymentEnvironmentsExecute(r Ap
 }
 
 type ApiGetApplicationDeploymentTemplatesRequest struct {
-	ctx        context.Context
-	ApiService *ApplicationAPIService
+	applicationId string
+	ctx           context.Context
+	ApiService    *ApplicationAPIService
 }
 
 func (r ApiGetApplicationDeploymentTemplatesRequest) Execute() ([]GetApplicationDeploymentTemplates200ResponseInner, *http.Response, error) {
@@ -1050,10 +1054,11 @@ GetApplicationDeploymentTemplates Get a list of deployment templates for a given
 	@param ctx context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
 	@return ApiGetApplicationDeploymentTemplatesRequest
 */
-func (a *ApplicationAPIService) GetApplicationDeploymentTemplates(ctx context.Context) ApiGetApplicationDeploymentTemplatesRequest {
+func (a *ApplicationAPIService) GetApplicationDeploymentTemplates(ctx context.Context, applicationId string) ApiGetApplicationDeploymentTemplatesRequest {
 	return ApiGetApplicationDeploymentTemplatesRequest{
-		ApiService: a,
-		ctx:        ctx,
+		applicationId: applicationId,
+		ApiService:    a,
+		ctx:           ctx,
 	}
 }
 
@@ -1074,6 +1079,7 @@ func (a *ApplicationAPIService) GetApplicationDeploymentTemplatesExecute(r ApiGe
 	}
 
 	localVarPath := localBasePath + "/v3/application/{applicationId}/deploymentTemplate"
+	localVarPath = strings.Replace(localVarPath, "{applicationId}", url.PathEscape(parameterValueToString(r.applicationId, "applicationId")), -1)
 
 	localVarHeaderParams := make(map[string]string)
 	localVarQueryParams := url.Values{}
@@ -1158,8 +1164,9 @@ func (a *ApplicationAPIService) GetApplicationDeploymentTemplatesExecute(r ApiGe
 }
 
 type ApiGetApplicationFleetsRequest struct {
-	ctx        context.Context
-	ApiService *ApplicationAPIService
+	applicationId string
+	ctx           context.Context
+	ApiService    *ApplicationAPIService
 }
 
 func (r ApiGetApplicationFleetsRequest) Execute() ([]Fleet, *http.Response, error) {
@@ -1172,10 +1179,11 @@ GetApplicationFleets Get the list of fleets using given applicationId
 	@param ctx context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
 	@return ApiGetApplicationFleetsRequest
 */
-func (a *ApplicationAPIService) GetApplicationFleets(ctx context.Context) ApiGetApplicationFleetsRequest {
+func (a *ApplicationAPIService) GetApplicationFleets(ctx context.Context, applicationId string) ApiGetApplicationFleetsRequest {
 	return ApiGetApplicationFleetsRequest{
-		ApiService: a,
-		ctx:        ctx,
+		applicationId: applicationId,
+		ApiService:    a,
+		ctx:           ctx,
 	}
 }
 
@@ -1196,6 +1204,7 @@ func (a *ApplicationAPIService) GetApplicationFleetsExecute(r ApiGetApplicationF
 	}
 
 	localVarPath := localBasePath + "/v3/application/{applicationId}/fleet"
+	localVarPath = strings.Replace(localVarPath, "{applicationId}", url.PathEscape(parameterValueToString(r.applicationId, "applicationId")), -1)
 
 	localVarHeaderParams := make(map[string]string)
 	localVarQueryParams := url.Values{}

@@ -28,3 +28,24 @@ func TestBuildProvisioningFilesUsesRegistrationIDInPath(t *testing.T) {
 		t.Fatalf("request = %q, want %q", got, want)
 	}
 }
+
+func TestDeploymentEnvironmentTelemetryUsesEnvironmentIDInPath(t *testing.T) {
+	requests := make(chan string, 1)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests <- r.Method + " " + r.URL.EscapedPath()
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte("[]"))
+	}))
+	defer server.Close()
+	cfg := NewConfiguration()
+	cfg.Servers = ServerConfigurations{{URL: server.URL}}
+	client := NewAPIClient(cfg)
+	_, _, err := client.DeploymentEnvironmentTelemetryAPI.GetTelemetryDeploymentEnvironmentCurrents(context.Background(), "environment-123").Execute()
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "GET /v3/telemetry/deploymentEnvironment/environment-123/current"
+	if got := <-requests; got != want {
+		t.Fatalf("request = %q, want %q", got, want)
+	}
+}

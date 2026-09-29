@@ -683,8 +683,10 @@ func (a *PatchJobAPIService) GetPatchJobExecute(r ApiGetPatchJobRequest) ([]Patc
 }
 
 type ApiGetPatchJobApplicationInstanceFailedApplicationInstancesRequest struct {
-	ctx        context.Context
-	ApiService *PatchJobAPIService
+	patchJobId            string
+	applicationInstanceId string
+	ctx                   context.Context
+	ApiService            *PatchJobAPIService
 }
 
 func (r ApiGetPatchJobApplicationInstanceFailedApplicationInstancesRequest) Execute() ([]PatchJobFailedApplicationInstance, *http.Response, error) {
@@ -697,10 +699,12 @@ GetPatchJobApplicationInstanceFailedApplicationInstances Get a failed applicatio
 	@param ctx context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
 	@return ApiGetPatchJobApplicationInstanceFailedApplicationInstancesRequest
 */
-func (a *PatchJobAPIService) GetPatchJobApplicationInstanceFailedApplicationInstances(ctx context.Context) ApiGetPatchJobApplicationInstanceFailedApplicationInstancesRequest {
+func (a *PatchJobAPIService) GetPatchJobApplicationInstanceFailedApplicationInstances(ctx context.Context, patchJobId string, applicationInstanceId string) ApiGetPatchJobApplicationInstanceFailedApplicationInstancesRequest {
 	return ApiGetPatchJobApplicationInstanceFailedApplicationInstancesRequest{
-		ApiService: a,
-		ctx:        ctx,
+		patchJobId:            patchJobId,
+		applicationInstanceId: applicationInstanceId,
+		ApiService:            a,
+		ctx:                   ctx,
 	}
 }
 
@@ -721,6 +725,8 @@ func (a *PatchJobAPIService) GetPatchJobApplicationInstanceFailedApplicationInst
 	}
 
 	localVarPath := localBasePath + "/v3/patchJob/{patchJobId}/applicationInstance/{applicationInstanceId}/failedApplicationInstance"
+	localVarPath = strings.Replace(localVarPath, "{patchJobId}", url.PathEscape(parameterValueToString(r.patchJobId, "patchJobId")), -1)
+	localVarPath = strings.Replace(localVarPath, "{applicationInstanceId}", url.PathEscape(parameterValueToString(r.applicationInstanceId, "applicationInstanceId")), -1)
 
 	localVarHeaderParams := make(map[string]string)
 	localVarQueryParams := url.Values{}
@@ -1061,6 +1067,7 @@ func (a *PatchJobAPIService) GetPatchJobEmailsExecute(r ApiGetPatchJobEmailsRequ
 }
 
 type ApiGetPatchJobFailedApplicationInstanceRequest struct {
+	patchJobId string
 	ctx        context.Context
 	ApiService *PatchJobAPIService
 	rANGEDDATA *string
@@ -1082,8 +1089,9 @@ GetPatchJobFailedApplicationInstance Get a list of failed application instances
 	@param ctx context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
 	@return ApiGetPatchJobFailedApplicationInstanceRequest
 */
-func (a *PatchJobAPIService) GetPatchJobFailedApplicationInstance(ctx context.Context) ApiGetPatchJobFailedApplicationInstanceRequest {
+func (a *PatchJobAPIService) GetPatchJobFailedApplicationInstance(ctx context.Context, patchJobId string) ApiGetPatchJobFailedApplicationInstanceRequest {
 	return ApiGetPatchJobFailedApplicationInstanceRequest{
+		patchJobId: patchJobId,
 		ApiService: a,
 		ctx:        ctx,
 	}
@@ -1106,6 +1114,7 @@ func (a *PatchJobAPIService) GetPatchJobFailedApplicationInstanceExecute(r ApiGe
 	}
 
 	localVarPath := localBasePath + "/v3/patchJob/{patchJobId}/failedApplicationInstances"
+	localVarPath = strings.Replace(localVarPath, "{patchJobId}", url.PathEscape(parameterValueToString(r.patchJobId, "patchJobId")), -1)
 
 	localVarHeaderParams := make(map[string]string)
 	localVarQueryParams := url.Values{}
@@ -1194,6 +1203,7 @@ func (a *PatchJobAPIService) GetPatchJobFailedApplicationInstanceExecute(r ApiGe
 }
 
 type ApiGetPatchJobReportProgressRequest struct {
+	patchJobId string
 	ctx        context.Context
 	ApiService *PatchJobAPIService
 }
@@ -1208,8 +1218,9 @@ GetPatchJobReportProgress Get gives back the progress of the patch job
 	@param ctx context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
 	@return ApiGetPatchJobReportProgressRequest
 */
-func (a *PatchJobAPIService) GetPatchJobReportProgress(ctx context.Context) ApiGetPatchJobReportProgressRequest {
+func (a *PatchJobAPIService) GetPatchJobReportProgress(ctx context.Context, patchJobId string) ApiGetPatchJobReportProgressRequest {
 	return ApiGetPatchJobReportProgressRequest{
+		patchJobId: patchJobId,
 		ApiService: a,
 		ctx:        ctx,
 	}
@@ -1232,6 +1243,7 @@ func (a *PatchJobAPIService) GetPatchJobReportProgressExecute(r ApiGetPatchJobRe
 	}
 
 	localVarPath := localBasePath + "/v3/patchJob/{patchJobId}/report/progress"
+	localVarPath = strings.Replace(localVarPath, "{patchJobId}", url.PathEscape(parameterValueToString(r.patchJobId, "patchJobId")), -1)
 
 	localVarHeaderParams := make(map[string]string)
 	localVarQueryParams := url.Values{}

@@ -17,16 +17,18 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 )
 
 // ApplicationBuildTelemetryAPIService ApplicationBuildTelemetryAPI service
 type ApplicationBuildTelemetryAPIService service
 
 type ApiGetTelemetryApplicationBuildRequest struct {
-	ctx        context.Context
-	ApiService *ApplicationBuildTelemetryAPIService
-	startTime  *int32
-	endTime    *int32
+	applicationBuildId string
+	ctx                context.Context
+	ApiService         *ApplicationBuildTelemetryAPIService
+	startTime          *int32
+	endTime            *int32
 }
 
 // Unix timestamp. Filter from time, default value is -1 day
@@ -51,10 +53,11 @@ GetTelemetryApplicationBuild Get all your application build telemetry history
 	@param ctx context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
 	@return ApiGetTelemetryApplicationBuildRequest
 */
-func (a *ApplicationBuildTelemetryAPIService) GetTelemetryApplicationBuild(ctx context.Context) ApiGetTelemetryApplicationBuildRequest {
+func (a *ApplicationBuildTelemetryAPIService) GetTelemetryApplicationBuild(ctx context.Context, applicationBuildId string) ApiGetTelemetryApplicationBuildRequest {
 	return ApiGetTelemetryApplicationBuildRequest{
-		ApiService: a,
-		ctx:        ctx,
+		applicationBuildId: applicationBuildId,
+		ApiService:         a,
+		ctx:                ctx,
 	}
 }
 
@@ -75,6 +78,7 @@ func (a *ApplicationBuildTelemetryAPIService) GetTelemetryApplicationBuildExecut
 	}
 
 	localVarPath := localBasePath + "/v3/telemetry/applicationBuild/{applicationBuildId}"
+	localVarPath = strings.Replace(localVarPath, "{applicationBuildId}", url.PathEscape(parameterValueToString(r.applicationBuildId, "applicationBuildId")), -1)
 
 	localVarHeaderParams := make(map[string]string)
 	localVarQueryParams := url.Values{}
@@ -165,8 +169,9 @@ func (a *ApplicationBuildTelemetryAPIService) GetTelemetryApplicationBuildExecut
 }
 
 type ApiGetTelemetryApplicationBuildCurrentsRequest struct {
-	ctx        context.Context
-	ApiService *ApplicationBuildTelemetryAPIService
+	applicationBuildId string
+	ctx                context.Context
+	ApiService         *ApplicationBuildTelemetryAPIService
 }
 
 func (r ApiGetTelemetryApplicationBuildCurrentsRequest) Execute() ([]ApplicationBuildTelemetryModel, *http.Response, error) {
@@ -179,10 +184,11 @@ GetTelemetryApplicationBuildCurrents Get all your application build telemetry
 	@param ctx context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
 	@return ApiGetTelemetryApplicationBuildCurrentsRequest
 */
-func (a *ApplicationBuildTelemetryAPIService) GetTelemetryApplicationBuildCurrents(ctx context.Context) ApiGetTelemetryApplicationBuildCurrentsRequest {
+func (a *ApplicationBuildTelemetryAPIService) GetTelemetryApplicationBuildCurrents(ctx context.Context, applicationBuildId string) ApiGetTelemetryApplicationBuildCurrentsRequest {
 	return ApiGetTelemetryApplicationBuildCurrentsRequest{
-		ApiService: a,
-		ctx:        ctx,
+		applicationBuildId: applicationBuildId,
+		ApiService:         a,
+		ctx:                ctx,
 	}
 }
 
@@ -203,6 +209,7 @@ func (a *ApplicationBuildTelemetryAPIService) GetTelemetryApplicationBuildCurren
 	}
 
 	localVarPath := localBasePath + "/v3/telemetry/applicationBuild/{applicationBuildId}/current"
+	localVarPath = strings.Replace(localVarPath, "{applicationBuildId}", url.PathEscape(parameterValueToString(r.applicationBuildId, "applicationBuildId")), -1)
 
 	localVarHeaderParams := make(map[string]string)
 	localVarQueryParams := url.Values{}

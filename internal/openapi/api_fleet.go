@@ -906,6 +906,7 @@ func (a *FleetAPIService) GetFleetGameLiftDeploymentEnvironmentVariablesExecute(
 }
 
 type ApiGetFleetHostBulkReserveStatusesRequest struct {
+	traceId    string
 	ctx        context.Context
 	ApiService *FleetAPIService
 }
@@ -920,8 +921,9 @@ GetFleetHostBulkReserveStatuses Progress for the bulk reserve you have done, bas
 	@param ctx context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
 	@return ApiGetFleetHostBulkReserveStatusesRequest
 */
-func (a *FleetAPIService) GetFleetHostBulkReserveStatuses(ctx context.Context) ApiGetFleetHostBulkReserveStatusesRequest {
+func (a *FleetAPIService) GetFleetHostBulkReserveStatuses(ctx context.Context, traceId string) ApiGetFleetHostBulkReserveStatusesRequest {
 	return ApiGetFleetHostBulkReserveStatusesRequest{
+		traceId:    traceId,
 		ApiService: a,
 		ctx:        ctx,
 	}
@@ -944,6 +946,7 @@ func (a *FleetAPIService) GetFleetHostBulkReserveStatusesExecute(r ApiGetFleetHo
 	}
 
 	localVarPath := localBasePath + "/v3/fleet/host/bulkReserve/{traceId}/status"
+	localVarPath = strings.Replace(localVarPath, "{traceId}", url.PathEscape(parameterValueToString(r.traceId, "traceId")), -1)
 
 	localVarHeaderParams := make(map[string]string)
 	localVarQueryParams := url.Values{}

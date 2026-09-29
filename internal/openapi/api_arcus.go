@@ -17,12 +17,14 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 )
 
 // ArcusAPIService ArcusAPI service
 type ArcusAPIService service
 
 type ApiCreateCustomCommandApplicationInstanceRequest struct {
+	applicationInstanceId   string
 	ctx                     context.Context
 	ApiService              *ArcusAPIService
 	customCommandCollection *CustomCommandCollection
@@ -43,10 +45,11 @@ CreateCustomCommandApplicationInstance Sends a command to a application instance
 	@param ctx context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
 	@return ApiCreateCustomCommandApplicationInstanceRequest
 */
-func (a *ArcusAPIService) CreateCustomCommandApplicationInstance(ctx context.Context) ApiCreateCustomCommandApplicationInstanceRequest {
+func (a *ArcusAPIService) CreateCustomCommandApplicationInstance(ctx context.Context, applicationInstanceId string) ApiCreateCustomCommandApplicationInstanceRequest {
 	return ApiCreateCustomCommandApplicationInstanceRequest{
-		ApiService: a,
-		ctx:        ctx,
+		applicationInstanceId: applicationInstanceId,
+		ApiService:            a,
+		ctx:                   ctx,
 	}
 }
 
@@ -67,6 +70,7 @@ func (a *ArcusAPIService) CreateCustomCommandApplicationInstanceExecute(r ApiCre
 	}
 
 	localVarPath := localBasePath + "/v3/customCommand/applicationInstance/{applicationInstanceId}"
+	localVarPath = strings.Replace(localVarPath, "{applicationInstanceId}", url.PathEscape(parameterValueToString(r.applicationInstanceId, "applicationInstanceId")), -1)
 
 	localVarHeaderParams := make(map[string]string)
 	localVarQueryParams := url.Values{}
@@ -156,6 +160,7 @@ func (a *ArcusAPIService) CreateCustomCommandApplicationInstanceExecute(r ApiCre
 }
 
 type ApiCreateCustomCommandHostRequest struct {
+	hostId                  int32
 	ctx                     context.Context
 	ApiService              *ArcusAPIService
 	customCommandCollection *CustomCommandCollection
@@ -176,8 +181,9 @@ CreateCustomCommandHost Sends a command to a host (all application instances wil
 	@param ctx context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
 	@return ApiCreateCustomCommandHostRequest
 */
-func (a *ArcusAPIService) CreateCustomCommandHost(ctx context.Context) ApiCreateCustomCommandHostRequest {
+func (a *ArcusAPIService) CreateCustomCommandHost(ctx context.Context, hostId int32) ApiCreateCustomCommandHostRequest {
 	return ApiCreateCustomCommandHostRequest{
+		hostId:     hostId,
 		ApiService: a,
 		ctx:        ctx,
 	}
@@ -200,6 +206,7 @@ func (a *ArcusAPIService) CreateCustomCommandHostExecute(r ApiCreateCustomComman
 	}
 
 	localVarPath := localBasePath + "/v3/customCommand/host/{hostId}"
+	localVarPath = strings.Replace(localVarPath, "{hostId}", url.PathEscape(parameterValueToString(r.hostId, "hostId")), -1)
 
 	localVarHeaderParams := make(map[string]string)
 	localVarQueryParams := url.Values{}

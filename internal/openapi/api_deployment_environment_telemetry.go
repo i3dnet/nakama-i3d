@@ -17,14 +17,16 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 )
 
 // DeploymentEnvironmentTelemetryAPIService DeploymentEnvironmentTelemetryAPI service
 type DeploymentEnvironmentTelemetryAPIService service
 
 type ApiGetTelemetryDeploymentEnvironmentCurrentsRequest struct {
-	ctx        context.Context
-	ApiService *DeploymentEnvironmentTelemetryAPIService
+	deploymentEnvironmentId string
+	ctx                     context.Context
+	ApiService              *DeploymentEnvironmentTelemetryAPIService
 }
 
 func (r ApiGetTelemetryDeploymentEnvironmentCurrentsRequest) Execute() ([]DeploymentEnvironmentTelemetryModel, *http.Response, error) {
@@ -37,10 +39,11 @@ GetTelemetryDeploymentEnvironmentCurrents Get current deployment environment tel
 	@param ctx context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
 	@return ApiGetTelemetryDeploymentEnvironmentCurrentsRequest
 */
-func (a *DeploymentEnvironmentTelemetryAPIService) GetTelemetryDeploymentEnvironmentCurrents(ctx context.Context) ApiGetTelemetryDeploymentEnvironmentCurrentsRequest {
+func (a *DeploymentEnvironmentTelemetryAPIService) GetTelemetryDeploymentEnvironmentCurrents(ctx context.Context, deploymentEnvironmentId string) ApiGetTelemetryDeploymentEnvironmentCurrentsRequest {
 	return ApiGetTelemetryDeploymentEnvironmentCurrentsRequest{
-		ApiService: a,
-		ctx:        ctx,
+		deploymentEnvironmentId: deploymentEnvironmentId,
+		ApiService:              a,
+		ctx:                     ctx,
 	}
 }
 
@@ -61,6 +64,7 @@ func (a *DeploymentEnvironmentTelemetryAPIService) GetTelemetryDeploymentEnviron
 	}
 
 	localVarPath := localBasePath + "/v3/telemetry/deploymentEnvironment/{deploymentEnvironmentId}/current"
+	localVarPath = strings.Replace(localVarPath, "{deploymentEnvironmentId}", url.PathEscape(parameterValueToString(r.deploymentEnvironmentId, "deploymentEnvironmentId")), -1)
 
 	localVarHeaderParams := make(map[string]string)
 	localVarQueryParams := url.Values{}

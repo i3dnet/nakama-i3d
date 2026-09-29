@@ -608,6 +608,12 @@ paths:
   /v3/telemetry/deploymentEnvironment/{deploymentEnvironmentId}/current:
     get:
       operationId: getTelemetryDeploymentEnvironmentCurrents
+      parameters:
+      - in: path
+        name: deploymentEnvironmentId
+        required: true
+        schema:
+          type: string
       responses:
         "200":
           content:
@@ -929,6 +935,12 @@ paths:
   /v3/fleet/host/bulkReserve/{traceId}/status:
     get:
       operationId: getFleetHostBulkReserveStatuses
+      parameters:
+      - in: path
+        name: traceId
+        required: true
+        schema:
+          type: string
       responses:
         "200":
           content:
@@ -3736,6 +3748,12 @@ paths:
   /v3/application/{applicationId}/deploymentEnvironment:
     get:
       operationId: getApplicationDeploymentEnvironments
+      parameters:
+      - in: path
+        name: applicationId
+        required: true
+        schema:
+          type: string
       responses:
         "200":
           content:
@@ -3761,6 +3779,12 @@ paths:
   /v3/application/{applicationId}/fleet:
     get:
       operationId: getApplicationFleets
+      parameters:
+      - in: path
+        name: applicationId
+        required: true
+        schema:
+          type: string
       responses:
         "200":
           content:
@@ -3786,6 +3810,12 @@ paths:
   /v3/application/{applicationId}/deploymentTemplate:
     get:
       operationId: getApplicationDeploymentTemplates
+      parameters:
+      - in: path
+        name: applicationId
+        required: true
+        schema:
+          type: string
       responses:
         "200":
           content:
@@ -4043,6 +4073,12 @@ paths:
   /v3/telemetry/application/{applicationId}/current:
     get:
       operationId: getTelemetryApplicationCurrents
+      parameters:
+      - in: path
+        name: applicationId
+        required: true
+        schema:
+          type: string
       responses:
         "200":
           content:
@@ -4069,6 +4105,11 @@ paths:
     get:
       operationId: getTelemetryApplication
       parameters:
+      - in: path
+        name: applicationId
+        required: true
+        schema:
+          type: string
       - description: "Unix timestamp. Filter from time, default value is -1 day"
         explode: true
         in: query
@@ -4411,6 +4452,12 @@ paths:
   /v3/telemetry/applicationBuild/{applicationBuildId}/current:
     get:
       operationId: getTelemetryApplicationBuildCurrents
+      parameters:
+      - in: path
+        name: applicationBuildId
+        required: true
+        schema:
+          type: string
       responses:
         "200":
           content:
@@ -4437,6 +4484,11 @@ paths:
     get:
       operationId: getTelemetryApplicationBuild
       parameters:
+      - in: path
+        name: applicationBuildId
+        required: true
+        schema:
+          type: string
       - description: "Unix timestamp. Filter from time, default value is -1 day"
         explode: true
         in: query
@@ -5408,6 +5460,12 @@ paths:
   /v3/patchJob/{patchJobId}/report/progress:
     get:
       operationId: getPatchJobReportProgress
+      parameters:
+      - in: path
+        name: patchJobId
+        required: true
+        schema:
+          type: string
       responses:
         "200":
           content:
@@ -5432,6 +5490,11 @@ paths:
     get:
       operationId: getPatchJobFailedApplicationInstance
       parameters:
+      - in: path
+        name: patchJobId
+        required: true
+        schema:
+          type: string
       - description: "Example header and default range: RANGED-DATA:start=0,results=25"
         explode: false
         in: header
@@ -5463,6 +5526,17 @@ paths:
   /v3/patchJob/{patchJobId}/applicationInstance/{applicationInstanceId}/failedApplicationInstance:
     get:
       operationId: getPatchJobApplicationInstanceFailedApplicationInstances
+      parameters:
+      - in: path
+        name: patchJobId
+        required: true
+        schema:
+          type: string
+      - in: path
+        name: applicationInstanceId
+        required: true
+        schema:
+          type: string
       responses:
         "200":
           content:
@@ -10321,6 +10395,13 @@ paths:
   /v3/customCommand/host/{hostId}:
     post:
       operationId: createCustomCommandHost
+      parameters:
+      - in: path
+        name: hostId
+        required: true
+        schema:
+          type: integer
+          format: int32
       requestBody:
         content:
           application/json:
@@ -10352,6 +10433,12 @@ paths:
   /v3/customCommand/applicationInstance/{applicationInstanceId}:
     post:
       operationId: createCustomCommandApplicationInstance
+      parameters:
+      - in: path
+        name: applicationInstanceId
+        required: true
+        schema:
+          type: string
       requestBody:
         content:
           application/json:
