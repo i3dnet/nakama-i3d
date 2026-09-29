@@ -440,7 +440,7 @@ func (fm *I3dFleetManager) Update(ctx context.Context, id string, playerCount in
 		return ErrInvalidInput
 	}
 
-	instance, err := fm.client.UpdateApplicationInstance(ctx, id, playerCount, metadata)
+	instance, err := fm.client.UpdateApplicationInstance(ctx, id, metadata)
 	if err != nil {
 		return err
 	}

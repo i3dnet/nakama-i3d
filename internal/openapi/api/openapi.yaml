@@ -5986,7 +5986,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ApplicationInstance'
+              $ref: '#/components/schemas/MetadataPatchCollection'
         description: ""
         required: true
       responses:
@@ -6549,7 +6549,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/MetadataCollection'
+              $ref: '#/components/schemas/MetadataPatchCollection'
         description: |-
           Custom key/value pairs that form miscellaneous metadata to be stored alongside all game servers
           selected in this call. Metadata is merged with existing metadata in the game server. Key/value pairs are only deleted if you submit a key with a
@@ -17707,6 +17707,27 @@ components:
       - key
       - value
       type: object
+    # Request-only subset: response fields on ApplicationInstance are read-only.
+    # The published metadata guide permits null values to delete individual keys.
+    MetadataChange:
+      type: object
+      additionalProperties: false
+      required: [key, value]
+      properties:
+        key:
+          type: string
+        value:
+          type: string
+          nullable: true
+    MetadataPatchCollection:
+      type: object
+      additionalProperties: false
+      required: [metadata]
+      properties:
+        metadata:
+          type: array
+          items:
+            $ref: '#/components/schemas/MetadataChange'
     MetadataCollection:
       additionalProperties: false
       example:

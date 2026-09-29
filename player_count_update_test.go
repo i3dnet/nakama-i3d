@@ -27,7 +27,7 @@ func TestPlayerCountUpdateRejectsOverCapacityBeforeProvider(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			fm, _, client := sessionFixture(t, 1, 3)
 			calls := 0
-			client.EXPECT().UpdateApplicationInstance(gomock.Any(), "instance", gomock.Any(), gomock.Any()).DoAndReturn(func(context.Context, string, int, map[string]any) (*runtime.InstanceInfo, error) {
+			client.EXPECT().UpdateApplicationInstance(gomock.Any(), "instance", gomock.Any()).DoAndReturn(func(context.Context, string, map[string]any) (*runtime.InstanceInfo, error) {
 				calls++
 				return &runtime.InstanceInfo{Id: "instance", Status: "ALLOCATED"}, nil
 			}).AnyTimes()
@@ -65,7 +65,7 @@ func TestPlayerCountUpdateRechecksCapacityAfterConcurrentChange(t *testing.T) {
 				})
 				require.NoError(t, err)
 			}
-			client.EXPECT().UpdateApplicationInstance(gomock.Any(), "instance", gomock.Any(), gomock.Any()).DoAndReturn(func(context.Context, string, int, map[string]any) (*runtime.InstanceInfo, error) {
+			client.EXPECT().UpdateApplicationInstance(gomock.Any(), "instance", gomock.Any()).DoAndReturn(func(context.Context, string, map[string]any) (*runtime.InstanceInfo, error) {
 				if duringRetry {
 					nk.AfterRead = func() {
 						nk.AfterRead = nil
@@ -91,7 +91,7 @@ func TestPlayerCountUpdateDoesNotOverwriteNewProviderGeneration(t *testing.T) {
 	fm, _, client := sessionFixture(t, 1, 4)
 	first := time.Unix(100, 0)
 	latest := first.Add(time.Hour)
-	client.EXPECT().UpdateApplicationInstance(gomock.Any(), "instance", gomock.Any(), gomock.Any()).DoAndReturn(func(context.Context, string, int, map[string]any) (*runtime.InstanceInfo, error) {
+	client.EXPECT().UpdateApplicationInstance(gomock.Any(), "instance", gomock.Any()).DoAndReturn(func(context.Context, string, map[string]any) (*runtime.InstanceInfo, error) {
 		err := fm.storage.CreateGameSession(context.Background(), &runtime.InstanceInfo{Id: "instance", CreateTime: latest, Status: "ALLOCATED", PlayerCount: 1, Metadata: map[string]any{MaxPlayers: 4}}, "123", []string{"player"})
 		require.NoError(t, err)
 		return &runtime.InstanceInfo{Id: "instance", CreateTime: first, Status: "ALLOCATED"}, nil
@@ -106,22 +106,23 @@ func TestPlayerCountUpdateDoesNotOverwriteNewProviderGeneration(t *testing.T) {
 	require.Equal(t, 4, capacity)
 }
 
-func TestPlayerCountUpdateSendsReportedCountToProvider(t *testing.T) {
+func TestPlayerCountUpdateKeepsNakamaCountIndependentOfArcus(t *testing.T) {
 	for _, count := range []int{0, 3} {
 		t.Run(strconv.Itoa(count), func(t *testing.T) {
 			fm, _, _ := sessionFixture(t, 1, 3)
-			updates := make(chan openapi.ApplicationInstance, 1)
+			updates := make(chan map[string]any, 1)
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				instance := openapi.ApplicationInstance{Id: "instance", ApplicationId: "123", Status: 5, NumPlayers: 1,
 					IpAddress:  []openapi.ApplicationInstanceIP{{IpAddress: "203.0.113.10", IpVersion: 4}},
 					Properties: []openapi.ApplicationInstanceProperty{{PropertyKey: "port", PropertyValue: "7777"}}}
 				if r.Method == http.MethodPut {
-					if err := json.NewDecoder(r.Body).Decode(&instance); err != nil {
+					var body map[string]any
+					if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 						t.Error(err)
 						w.WriteHeader(http.StatusBadRequest)
 						return
 					}
-					updates <- instance
+					updates <- body
 				}
 				w.Header().Set("Content-Type", "application/json")
 				_ = json.NewEncoder(w).Encode([]openapi.ApplicationInstance{instance})
@@ -131,8 +132,7 @@ func TestPlayerCountUpdateSendsReportedCountToProvider(t *testing.T) {
 			fm.client = clients.NewOneApiClient(cfg, clients.NewAuthentication(cfg), fm.logger)
 			require.NoError(t, fm.Update(context.Background(), "instance", count, map[string]any{"map": "arena"}))
 			update := <-updates
-			require.EqualValues(t, count, update.NumPlayers)
-			require.Equal(t, []openapi.Metadata{{Key: "map", Value: "arena"}}, update.Metadata)
+			require.Equal(t, map[string]any{"metadata": []any{map[string]any{"key": "map", "value": "arena"}}}, update)
 			stored, err := fm.storage.GetGameSessionFromStorage(context.Background(), "instance")
 			require.NoError(t, err)
 			require.Equal(t, count, stored.PlayerCount)
@@ -144,7 +144,7 @@ func TestPlayerCountUpdateRejectsProviderRangeOverflow(t *testing.T) {
 	count := int(math.MaxInt32) + 1
 	fm, _, client := sessionFixture(t, 0, count)
 	calls := 0
-	client.EXPECT().UpdateApplicationInstance(gomock.Any(), "instance", count, gomock.Any()).DoAndReturn(func(context.Context, string, int, map[string]any) (*runtime.InstanceInfo, error) {
+	client.EXPECT().UpdateApplicationInstance(gomock.Any(), "instance", gomock.Any()).DoAndReturn(func(context.Context, string, map[string]any) (*runtime.InstanceInfo, error) {
 		calls++
 		return &runtime.InstanceInfo{Id: "instance", Status: "ALLOCATED"}, nil
 	}).AnyTimes()

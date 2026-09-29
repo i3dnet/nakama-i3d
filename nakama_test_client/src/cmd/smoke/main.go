@@ -212,7 +212,7 @@ func (h *harness) run() error {
 	if _, err = h.rpc("i3d_smoke", map[string]any{"op": "race"}); err != nil {
 		return err
 	}
-	if _, err = h.rpc("update_instance_info", map[string]any{"id": id, "player_count": 1, "metadata": map[string]string{"map": "arena"}}); err != nil {
+	if _, err = h.rpc("update_instance_info", map[string]any{"id": id, "player_count": 1, "metadata": map[string]any{"map": "arena", "duration": nil, "empty": ""}}); err != nil {
 		return err
 	}
 	stored, err = h.read(id)
@@ -230,12 +230,33 @@ func (h *harness) run() error {
 	}
 	var updatedProvider []struct {
 		NumPlayers int `json:"numPlayers"`
+		Status     int `json:"status"`
+		Metadata   []struct {
+			Key   string `json:"key"`
+			Value string `json:"value"`
+		} `json:"metadata"`
 	}
 	if err := json.Unmarshal(providerData, &updatedProvider); err != nil {
 		return err
 	}
-	if providerStatus != 200 || len(updatedProvider) != 1 || updatedProvider[0].NumPlayers != 1 {
-		return fmt.Errorf("provider player count was not updated: HTTP %d: %s", providerStatus, providerData)
+	if providerStatus != 200 || len(updatedProvider) != 1 || updatedProvider[0].NumPlayers != 0 || updatedProvider[0].Status != 5 {
+		return fmt.Errorf("metadata update changed read-only provider telemetry/status: HTTP %d: %s", providerStatus, providerData)
+	}
+	providerMetadata := map[string]string{}
+	for _, pair := range updatedProvider[0].Metadata {
+		providerMetadata[pair.Key] = pair.Value
+	}
+	if providerMetadata["map"] != "arena" {
+		return fmt.Errorf("provider metadata update was lost")
+	}
+	if empty, ok := providerMetadata["empty"]; !ok || empty != "" {
+		return fmt.Errorf("empty metadata value was lost")
+	}
+	if _, ok := providerMetadata["duration"]; ok {
+		return fmt.Errorf("explicit metadata deletion was lost")
+	}
+	if _, ok := metadata["duration"]; ok {
+		return fmt.Errorf("deleted provider metadata retained in Nakama")
 	}
 	if _, err = h.rpc("delete_instance_info", map[string]any{"id": id}); err != nil {
 		return err

@@ -154,7 +154,7 @@ func TestDelayedUpdateCannotRestoreInvalidatedAdmission(t *testing.T) {
 	first := time.Unix(100, 0)
 	require.NoError(t, fm.storage.CreateGameSession(context.Background(), &runtime.InstanceInfo{Id: "instance", Status: "ALLOCATED", CreateTime: first, Metadata: map[string]any{MaxPlayers: 4}}, "123", nil))
 	ready, resume := make(chan struct{}), make(chan struct{})
-	client.EXPECT().UpdateApplicationInstance(gomock.Any(), "instance", 0, gomock.Any()).DoAndReturn(func(context.Context, string, int, map[string]any) (*runtime.InstanceInfo, error) {
+	client.EXPECT().UpdateApplicationInstance(gomock.Any(), "instance", gomock.Any()).DoAndReturn(func(context.Context, string, map[string]any) (*runtime.InstanceInfo, error) {
 		close(ready)
 		<-resume
 		return &runtime.InstanceInfo{Id: "instance", Status: "ALLOCATED", CreateTime: first}, nil

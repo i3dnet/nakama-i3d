@@ -54,7 +54,7 @@ func TestServerUpdateRPCUsesDocumentedPayload(t *testing.T) {
 	fm, client, cache, _, _ := createFixture(t)
 	metadata := map[string]any{"map": "arena"}
 	cache.EXPECT().GetGameSessionFromStorage(gomock.Any(), "instance").Return(&runtime.InstanceInfo{Id: "instance", Metadata: map[string]any{MaxPlayers: 3}}, nil)
-	client.EXPECT().UpdateApplicationInstance(gomock.Any(), "instance", 3, metadata).Return(&runtime.InstanceInfo{Id: "instance", Metadata: metadata}, nil)
+	client.EXPECT().UpdateApplicationInstance(gomock.Any(), "instance", metadata).Return(&runtime.InstanceInfo{Id: "instance", Metadata: metadata}, nil)
 	cache.EXPECT().MutateGameSession(gomock.Any(), "instance", false, gomock.Any()).DoAndReturn(func(_ context.Context, _ string, _ bool, fn func(*runtime.InstanceInfo, map[string]bool) error) (*runtime.InstanceInfo, error) {
 		instance := &runtime.InstanceInfo{Id: "instance", Metadata: map[string]any{MaxPlayers: 3}}
 		err := fn(instance, map[string]bool{})
@@ -86,7 +86,7 @@ func TestLifecycleRPCControlsProviderErrors(t *testing.T) {
 				client.EXPECT().RestartApplicationInstance(gomock.Any(), "instance").Return(errors.New("provider failed"))
 			} else {
 				cache.EXPECT().GetGameSessionFromStorage(gomock.Any(), "instance").Return(&runtime.InstanceInfo{Id: "instance", Metadata: map[string]any{MaxPlayers: 3}}, nil)
-				client.EXPECT().UpdateApplicationInstance(gomock.Any(), "instance", 0, gomock.Any()).Return(nil, errors.New("provider failed"))
+				client.EXPECT().UpdateApplicationInstance(gomock.Any(), "instance", gomock.Any()).Return(nil, errors.New("provider failed"))
 			}
 			_, err := handler(context.Background(), fm.logger, nil, nil, `{"id":"instance"}`)
 			var runtimeErr *runtime.Error

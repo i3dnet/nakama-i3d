@@ -7,7 +7,6 @@ import (
 	"github.com/i3dnet/nakama-i3d/internal/openapi"
 	"github.com/i3dnet/nakama-i3d/internal/tests"
 	"github.com/stretchr/testify/require"
-	"math"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -64,34 +63,52 @@ func TestListSendsPageHeadersAndRetainsCursor(t *testing.T) {
 	require.Equal(t, []string{"results=7", "results=7"}, ranges)
 	require.Empty(t, second.NextCursor)
 }
-func TestUpdateTargetsInstanceForReadAndWrite(t *testing.T) {
+func TestUpdateSendsOnlyMetadataPatch(t *testing.T) {
 	var requests []string
-	var update openapi.ApplicationInstance
+	var update map[string]any
 	client := contractClient(t, func(w http.ResponseWriter, r *http.Request) {
 		requests = append(requests, r.Method+" "+r.URL.Path)
 		instance := validProviderInstance()
+		instance.NumPlayers = 7 // Read-only Arcus telemetry, independent of Nakama.
+		instance.Metadata = []openapi.Metadata{{Key: "keep", Value: "existing"}, {Key: "map", Value: "arena"}}
 		if r.Method == http.MethodPut {
-			_ = json.NewDecoder(r.Body).Decode(&update)
-			instance = update
+			if err := json.NewDecoder(r.Body).Decode(&update); err != nil {
+				t.Error(err)
+			}
 		}
 		writeInstances(w, []openapi.ApplicationInstance{instance})
 	})
-	got, err := client.UpdateApplicationInstance(context.Background(), "instance-1", 2, map[string]any{"map": "arena"})
+	got, err := client.UpdateApplicationInstance(context.Background(), "instance-1", map[string]any{"map": "arena", "remove": nil, "empty": "", "i3d_max_players": 10})
 	require.NoError(t, err)
-	require.Equal(t, []string{"GET /v3/applicationInstance/instance-1", "PUT /v3/applicationInstance/instance-1"}, requests)
-	require.Equal(t, []openapi.Metadata{{Key: "map", Value: "arena"}}, update.Metadata)
-	require.Equal(t, "arena", got.Metadata["map"])
-	require.EqualValues(t, 2, update.NumPlayers)
-	require.Equal(t, 2, got.PlayerCount)
+	require.Equal(t, []string{"PUT /v3/applicationInstance/instance-1"}, requests)
+	require.Equal(t, map[string]any{"metadata": []any{
+		map[string]any{"key": "empty", "value": ""},
+		map[string]any{"key": "map", "value": "arena"},
+		map[string]any{"key": "remove", "value": nil},
+	}}, update)
+	require.Equal(t, map[string]any{"keep": "existing", "map": "arena"}, got.Metadata)
+	require.Equal(t, 7, got.PlayerCount)
+}
+
+func TestAllocationPreservesExplicitMetadataDeletion(t *testing.T) {
+	var body map[string]any
+	client := contractClient(t, func(w http.ResponseWriter, r *http.Request) {
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Error(err)
+		}
+		writeInstances(w, []openapi.ApplicationInstance{validProviderInstance()})
+	})
+	_, err := client.AllocateApplicationInstance(context.Background(), map[string]any{"remove": nil, "empty": "", "i3d_private": nil}, "")
+	require.NoError(t, err)
+	require.Equal(t, map[string]any{"metadata": []any{
+		map[string]any{"key": "empty", "value": ""},
+		map[string]any{"key": "remove", "value": nil},
+	}}, body)
 }
 func TestEmptyProviderResponsesReturnErrors(t *testing.T) {
-	for _, operation := range []string{"get", "allocate", "update-get", "update-put"} {
+	for _, operation := range []string{"get", "allocate", "update"} {
 		t.Run(operation, func(t *testing.T) {
 			client := contractClient(t, func(w http.ResponseWriter, r *http.Request) {
-				if operation == "update-put" && r.Method == http.MethodGet {
-					writeInstances(w, []openapi.ApplicationInstance{validProviderInstance()})
-					return
-				}
 				writeInstances(w, []openapi.ApplicationInstance{})
 			})
 			require.NotPanics(t, func() {
@@ -102,7 +119,7 @@ func TestEmptyProviderResponsesReturnErrors(t *testing.T) {
 				case "allocate":
 					_, err = client.AllocateApplicationInstance(context.Background(), nil, "")
 				default:
-					_, err = client.UpdateApplicationInstance(context.Background(), "instance-1", 0, nil)
+					_, err = client.UpdateApplicationInstance(context.Background(), "instance-1", nil)
 				}
 				require.Error(t, err)
 			})
@@ -238,21 +255,6 @@ func TestAllocationErrorRetainsOnlyConfirmedAllocationIdentity(t *testing.T) {
 			} else {
 				require.Nil(t, got, "unconfirmed identity must never authorize restart")
 			}
-		})
-	}
-}
-
-func TestUpdateRejectsPlayerCountsOutsideProviderRange(t *testing.T) {
-	for _, count := range []int{-1, int(math.MaxInt32) + 1} {
-		t.Run(strconv.Itoa(count), func(t *testing.T) {
-			calls := 0
-			client := contractClient(t, func(w http.ResponseWriter, r *http.Request) {
-				calls++
-				writeInstances(w, []openapi.ApplicationInstance{validProviderInstance()})
-			})
-			_, err := client.UpdateApplicationInstance(context.Background(), "instance-1", count, nil)
-			require.Error(t, err)
-			require.Zero(t, calls)
 		})
 	}
 }

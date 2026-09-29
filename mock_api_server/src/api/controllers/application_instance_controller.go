@@ -47,19 +47,6 @@ func decode(c *gin.Context, value any) bool {
 	}
 	return true
 }
-func validMetadata(metadata []models.KeyValue) bool {
-	if metadata == nil {
-		return false
-	}
-	seen := map[string]bool{}
-	for _, pair := range metadata {
-		if pair.Key == "" || seen[pair.Key] {
-			return false
-		}
-		seen[pair.Key] = true
-	}
-	return true
-}
 
 // This mock implements equality joined by "and", the subset used by local tests.
 // Reject unsupported syntax instead of silently ignoring a filter.
@@ -130,7 +117,7 @@ func (gm *ApplicationInstanceController) Create(c *gin.Context) {
 			c.JSON(400, gin.H{"error": err.Error()})
 			return
 		}
-		if match && instance.ApplicationID == c.Param("applicationId") && instance.Status == 4 {
+		if match && instance.ApplicationID == c.Param("applicationId") && instance.Status == 4 && instance.NumPlayers == 0 {
 			instance.Status = 5
 			instance.Metadata = mergeMetadata(instance.Metadata, changes)
 			gm.allocations++
@@ -169,8 +156,15 @@ func (gm *ApplicationInstanceController) Restart(c *gin.Context) {
 	c.JSON(200, []*models.CommandResult{models.NewCommand()})
 }
 func (gm *ApplicationInstanceController) Update(c *gin.Context) {
-	var body models.ApplicationInstance
+	// A strict metadata-only subset catches accidental writes to read-only Arcus
+	// fields locally; it does not claim the real API rejects rather than ignores them.
+	var body models.KeyValueMetadata
 	if !decode(c, &body) {
+		return
+	}
+	changes, err := metadataChanges(body.Metadata)
+	if err != nil {
+		c.JSON(400, gin.H{"error": err.Error()})
 		return
 	}
 	gm.mu.Lock()
@@ -180,12 +174,7 @@ func (gm *ApplicationInstanceController) Update(c *gin.Context) {
 		c.JSON(404, gin.H{"error": "unknown instance"})
 		return
 	}
-	if body.Id != instance.Id || body.ApplicationID != instance.ApplicationID || body.FleetID != instance.FleetID || !validMetadata(body.Metadata) {
-		c.JSON(400, gin.H{"error": "invalid instance update"})
-		return
-	}
-	instance.Metadata = body.Metadata
-	instance.NumPlayers = body.NumPlayers
+	instance.Metadata = mergeMetadata(instance.Metadata, changes)
 	gm.updates++
 	c.JSON(200, []*models.ApplicationInstance{instance})
 }

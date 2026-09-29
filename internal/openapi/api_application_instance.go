@@ -2465,14 +2465,14 @@ func (a *ApplicationInstanceAPIService) GetApplicationInstancesExecute(r ApiGetA
 }
 
 type ApiUpdateApplicationInstanceRequest struct {
-	ctx                   context.Context
-	ApiService            *ApplicationInstanceAPIService
-	applicationInstanceId string
-	applicationInstance   *ApplicationInstance
+	ctx                     context.Context
+	ApiService              *ApplicationInstanceAPIService
+	applicationInstanceId   string
+	metadataPatchCollection *MetadataPatchCollection
 }
 
-func (r ApiUpdateApplicationInstanceRequest) ApplicationInstance(applicationInstance ApplicationInstance) ApiUpdateApplicationInstanceRequest {
-	r.applicationInstance = &applicationInstance
+func (r ApiUpdateApplicationInstanceRequest) MetadataPatchCollection(metadataPatchCollection MetadataPatchCollection) ApiUpdateApplicationInstanceRequest {
+	r.metadataPatchCollection = &metadataPatchCollection
 	return r
 }
 
@@ -2517,8 +2517,8 @@ func (a *ApplicationInstanceAPIService) UpdateApplicationInstanceExecute(r ApiUp
 	localVarHeaderParams := make(map[string]string)
 	localVarQueryParams := url.Values{}
 	localVarFormParams := url.Values{}
-	if r.applicationInstance == nil {
-		return localVarReturnValue, nil, reportError("applicationInstance is required and must be specified")
+	if r.metadataPatchCollection == nil {
+		return localVarReturnValue, nil, reportError("metadataPatchCollection is required and must be specified")
 	}
 
 	// to determine the Content-Type header
@@ -2539,7 +2539,7 @@ func (a *ApplicationInstanceAPIService) UpdateApplicationInstanceExecute(r ApiUp
 		localVarHeaderParams["Accept"] = localVarHTTPHeaderAccept
 	}
 	// body params
-	localVarPostBody = r.applicationInstance
+	localVarPostBody = r.metadataPatchCollection
 	if r.ctx != nil {
 		// API Key Authentication
 		if auth, ok := r.ctx.Value(ContextAPIKeys).(map[string]APIKey); ok {
@@ -2602,12 +2602,12 @@ func (a *ApplicationInstanceAPIService) UpdateApplicationInstanceExecute(r ApiUp
 }
 
 type ApiUpdateApplicationInstanceGameEmptyAllocateRequest struct {
-	ctx                context.Context
-	ApiService         *ApplicationInstanceAPIService
-	applicationId      string
-	labels             *string
-	filters            *string
-	metadataCollection *MetadataCollection
+	ctx                     context.Context
+	ApiService              *ApplicationInstanceAPIService
+	applicationId           string
+	labels                  *string
+	filters                 *string
+	metadataPatchCollection *MetadataPatchCollection
 }
 
 // Label expressions can be used to apply more specific search parameters and can be written in standard SQL query language.&lt;br /&gt; E.g. &#x60;region_id&#x3D;123&#x60; or multiple filters: &#x60;region_id&#x3D;123 and fleet_id&#x3D;456 or host_id&#x3D;46256&#x60; The provided filter query needs to be url encoded.&lt;br /&gt; E.g.&lt;br /&gt; &#x60;region_id%3D123&#x60; or multiple filters: &#x60;region_id%3D123%20and%20fleet_id%3D456%20or%20host_id%3D46256&#x60; The total would look like:&lt;br /&gt; &#x60;/applicationInstance/game/{applicationId}/empty/allocate?labels&#x3D;region_id%3D123%20and%20fleet_id%3D456%20or%20host_id%3D46256&#x60;&lt;br /&gt; If you want to filter on a non-numeric label such as &#x60;region_name&#x60;, you have to wrap the value in double quotes: &#x60;region_name&#x3D;\&quot;Rotterdam\&quot;&#x60;&lt;br /&gt; More information on the use of labels can be found &lt;a href&#x3D;\&quot;https://www.i3d.net/docs/one/odp/Platform-Elements/Application/Label/#pre-defined-labels\&quot;&gt;here&lt;/a&gt;.
@@ -2623,8 +2623,8 @@ func (r ApiUpdateApplicationInstanceGameEmptyAllocateRequest) Filters(filters st
 }
 
 // Custom key/value pairs that form miscellaneous metadata to be stored alongside all game servers selected in this call. Metadata is merged with existing metadata in the game server. Key/value pairs are only deleted if you submit a key with a &#x60;null&#x60; value
-func (r ApiUpdateApplicationInstanceGameEmptyAllocateRequest) MetadataCollection(metadataCollection MetadataCollection) ApiUpdateApplicationInstanceGameEmptyAllocateRequest {
-	r.metadataCollection = &metadataCollection
+func (r ApiUpdateApplicationInstanceGameEmptyAllocateRequest) MetadataPatchCollection(metadataPatchCollection MetadataPatchCollection) ApiUpdateApplicationInstanceGameEmptyAllocateRequest {
+	r.metadataPatchCollection = &metadataPatchCollection
 	return r
 }
 
@@ -2698,7 +2698,7 @@ func (a *ApplicationInstanceAPIService) UpdateApplicationInstanceGameEmptyAlloca
 		localVarHeaderParams["Accept"] = localVarHTTPHeaderAccept
 	}
 	// body params
-	localVarPostBody = r.metadataCollection
+	localVarPostBody = r.metadataPatchCollection
 	if r.ctx != nil {
 		// API Key Authentication
 		if auth, ok := r.ctx.Value(ContextAPIKeys).(map[string]APIKey); ok {

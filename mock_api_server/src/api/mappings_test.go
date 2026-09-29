@@ -47,8 +47,7 @@ func TestLifecyclePersistsStateAndUsesRealRoutes(t *testing.T) {
 	if !bytes.Contains(w.Body.Bytes(), []byte(`"status":5`)) || !bytes.Contains(w.Body.Bytes(), []byte("arena")) {
 		t.Fatal("allocation not persisted", w.Body.String())
 	}
-	instances[0]["metadata"] = []map[string]string{{"key": "mode", "value": "updated"}}
-	body, _ := json.Marshal(instances[0])
+	body := []byte(`{"metadata":[{"key":"mode","value":"updated"}]}`)
 	w = call(m, "PUT", "/v3/applicationInstance/"+id, string(body), nil)
 	if w.Code != 200 {
 		t.Fatal(w.Code, w.Body.String())

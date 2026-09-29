@@ -2,6 +2,7 @@ package controller
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/gin-gonic/gin"
 	"gitlab.com/i3Dnet/dev/game/projects/plugins/nakama/mock-api-server/api/models"
 	"net/http/httptest"
@@ -30,6 +31,7 @@ func TestQuotedFilterConjunctions(t *testing.T) {
 func controllerRequest(controller *ApplicationInstanceController, method, path, body string, headers map[string]string) *httptest.ResponseRecorder {
 	router := gin.New()
 	router.GET("/v3/applicationInstance", controller.List)
+	router.POST("/v3/applicationInstance/:instanceId/restart", controller.Restart)
 	router.PUT("/v3/applicationInstance/:instanceId", controller.Update)
 	router.PUT("/v3/applicationInstance/game/:applicationId/empty/allocate", controller.Create)
 	req := httptest.NewRequest(method, path, strings.NewReader(body))
@@ -136,29 +138,110 @@ func TestExpiredPaginationTokenIsRejected(t *testing.T) {
 	}
 }
 
-func TestUpdatePersistsReportedPlayerCount(t *testing.T) {
-	for _, count := range []int{0, 3} {
-		t.Run(strconv.Itoa(count), func(t *testing.T) {
+func TestUpdateMergesMetadataWithoutChangingProviderState(t *testing.T) {
+	controller := NewApplicationInstanceController()
+	instance := controller.instances["723709572903"]
+	instance.Status, instance.NumPlayers = 5, 3
+	instance.Metadata = []models.KeyValue{{Key: "keep", Value: "old"}, {Key: "map", Value: "before"}, {Key: "remove", Value: "gone"}}
+	response := controllerRequest(controller, "PUT", "/v3/applicationInstance/"+instance.Id,
+		`{"metadata":[{"key":"map","value":"arena"},{"key":"remove","value":null},{"key":"empty","value":""}]}`, nil)
+	if response.Code != 200 {
+		t.Fatal(response.Code, response.Body.String())
+	}
+	values := map[string]string{}
+	for _, pair := range instance.Metadata {
+		values[pair.Key] = pair.Value
+	}
+	if len(values) != 3 || values["keep"] != "old" || values["map"] != "arena" || values["empty"] != "" {
+		t.Fatalf("merged metadata=%v", values)
+	}
+	if _, ok := values["remove"]; ok {
+		t.Fatal("null key retained")
+	}
+	if instance.NumPlayers != 3 || instance.Status != 5 {
+		t.Fatalf("metadata update changed provider telemetry/state: %+v", instance)
+	}
+	var returned []models.ApplicationInstance
+	if err := json.Unmarshal(response.Body.Bytes(), &returned); err != nil || len(returned) != 1 || returned[0].NumPlayers != 3 {
+		t.Fatalf("invalid returned provider state: %s (%v)", response.Body.String(), err)
+	}
+	response = controllerRequest(controller, "PUT", "/v3/applicationInstance/"+instance.Id, `{"metadata":[]}`, nil)
+	if response.Code != 200 || len(instance.Metadata) != 3 {
+		t.Fatal(response.Code, response.Body.String())
+	}
+}
+
+func TestUpdateRejectsReadOnlyFieldsAndMalformedMetadata(t *testing.T) {
+	for _, body := range []string{
+		`{"numPlayers":0,"metadata":[]}`,
+		`{"status":4,"metadata":[]}`,
+		`{"metadata":[{"key":"missing"}]}`,
+		`{"metadata":[{"key":"number","value":42}]}`,
+		`{"metadata":[{"key":"same","value":"one"},{"key":"same","value":null}]}`,
+	} {
+		controller := NewApplicationInstanceController()
+		instance := controller.instances["723709572903"]
+		instance.Status, instance.NumPlayers = 5, 3
+		// Reject read-only fields locally; the real API may reject or ignore them.
+		response := controllerRequest(controller, "PUT", "/v3/applicationInstance/"+instance.Id, body, nil)
+		if response.Code != 400 || controller.updates != 0 || instance.NumPlayers != 3 || instance.Status != 5 {
+			t.Fatalf("invalid update mutated provider: status=%d body=%s", response.Code, body)
+		}
+	}
+}
+
+func TestAllocationExcludesOccupiedAndReservedInstances(t *testing.T) {
+	for _, state := range []struct{ status, players int }{{4, 2}, {5, 0}, {6, 0}} {
+		t.Run(fmt.Sprintf("status%d-players%d", state.status, state.players), func(t *testing.T) {
 			controller := NewApplicationInstanceController()
 			instance := controller.instances["723709572903"]
-			instance.NumPlayers = 1
-			update := *instance
-			update.NumPlayers = count
-			body, err := json.Marshal(update)
-			if err != nil {
-				t.Fatal(err)
-			}
-			response := controllerRequest(controller, "PUT", "/v3/applicationInstance/"+instance.Id, string(body), nil)
-			if response.Code != 200 {
-				t.Fatal(response.Code, response.Body.String())
-			}
-			var returned []models.ApplicationInstance
-			if err := json.Unmarshal(response.Body.Bytes(), &returned); err != nil {
-				t.Fatal(err)
-			}
-			if instance.NumPlayers != count || len(returned) != 1 || returned[0].NumPlayers != count {
-				t.Fatalf("player count: stored %d, response %s, want %d", instance.NumPlayers, response.Body, count)
+			delete(controller.instances, "723709572904")
+			instance.Status, instance.NumPlayers = state.status, state.players
+			response := controllerRequest(controller, "PUT", "/v3/applicationInstance/game/"+instance.ApplicationID+"/empty/allocate", `{"metadata":[]}`, nil)
+			if response.Code < 400 || controller.allocations != 0 || instance.Status != state.status {
+				t.Fatalf("occupied/reserved instance allocated: status=%d response=%s", response.Code, response.Body.String())
 			}
 		})
+	}
+}
+
+// This exercises the documented selection/reuse contract in the local service.
+// It does not emulate host-agent messages or real asynchronous restart timing.
+func TestAllocationUpdateRestartAndReuseLifecycle(t *testing.T) {
+	controller := NewApplicationInstanceController()
+	instance := controller.instances["723709572903"]
+	delete(controller.instances, "723709572904")
+	allocate := func(body string) *httptest.ResponseRecorder {
+		return controllerRequest(controller, "PUT", "/v3/applicationInstance/game/"+instance.ApplicationID+"/empty/allocate", body, nil)
+	}
+	if r := allocate(`{"metadata":[{"key":"match","value":"A"}]}`); r.Code != 200 || instance.Status != 5 {
+		t.Fatal(r.Code, r.Body.String())
+	}
+	if r := allocate(`{"metadata":[]}`); r.Code < 400 {
+		t.Fatal("reserved server allocated twice")
+	}
+	// Players are reported by Arcus, represented here by the fixture state.
+	instance.NumPlayers = 2
+	r := controllerRequest(controller, "PUT", "/v3/applicationInstance/"+instance.Id, `{"metadata":[{"key":"map","value":"arena"}]}`, nil)
+	if r.Code != 200 || instance.Status != 5 || instance.NumPlayers != 2 {
+		t.Fatal("metadata changed allocation/player state", r.Body.String())
+	}
+	if r := allocate(`{"metadata":[]}`); r.Code < 400 {
+		t.Fatal("occupied server allocated")
+	}
+	// A completed match alone does not release a reserved instance.
+	instance.NumPlayers = 0
+	if r := allocate(`{"metadata":[]}`); r.Code < 400 {
+		t.Fatal("allocated but empty server reused before release")
+	}
+	r = controllerRequest(controller, "POST", "/v3/applicationInstance/"+instance.Id+"/restart", "", nil)
+	if r.Code != 200 || instance.Status != 4 {
+		t.Fatal("restart failed", r.Body.String())
+	}
+	if r := allocate(`{"metadata":[{"key":"match","value":"B"}]}`); r.Code != 200 || instance.Status != 5 || controller.allocations != 2 || controller.restarts != 1 {
+		t.Fatal("server could not be reused after release", r.Body.String())
+	}
+	if len(instance.Metadata) != 1 || instance.Metadata[0].Value != "B" {
+		t.Fatal("replacement allocation metadata missing")
 	}
 }

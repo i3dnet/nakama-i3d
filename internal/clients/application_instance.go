@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/heroiclabs/nakama-common/runtime"
 	openapi "github.com/i3dnet/nakama-i3d/internal/openapi"
-	"math"
 	"net"
 	"sort"
 	"strconv"
@@ -29,7 +28,7 @@ type ApplicationInstance interface {
 	// owned by this request; the caller must reclaim it instead of exposing it.
 	AllocateApplicationInstance(ctx context.Context, metaData map[string]any, filters string) (*runtime.InstanceInfo, error)
 	RestartApplicationInstance(ctx context.Context, instanceID string) error
-	UpdateApplicationInstance(ctx context.Context, instanceID string, playerCount int, metaData map[string]any) (*runtime.InstanceInfo, error)
+	UpdateApplicationInstance(ctx context.Context, instanceID string, metaData map[string]any) (*runtime.InstanceInfo, error)
 }
 
 var ApplicationInstanceStatus = map[int32]string{
@@ -129,7 +128,7 @@ func (o *OneApiClient) AllocateApplicationInstance(ctx context.Context, metaData
 		request = request.Filters(filters)
 	}
 
-	request = request.MetadataCollection(createMetaData(metaData))
+	request = request.MetadataPatchCollection(createMetaData(metaData))
 
 	// Allocation is not idempotent: an ambiguous failure may already have allocated.
 	response, _, err := request.Execute()
@@ -172,30 +171,15 @@ func (o *OneApiClient) RestartApplicationInstance(ctx context.Context, instanceI
 	return err
 }
 
-func (o *OneApiClient) UpdateApplicationInstance(ctx context.Context, instanceID string, playerCount int, metaData map[string]any) (*runtime.InstanceInfo, error) {
-	if playerCount < 0 || playerCount > math.MaxInt32 {
-		return nil, fmt.Errorf("player count must be between 0 and %d", math.MaxInt32)
-	}
+func (o *OneApiClient) UpdateApplicationInstance(ctx context.Context, instanceID string, metaData map[string]any) (*runtime.InstanceInfo, error) {
 	client, err := o.GetClient(ctx)
 	if err != nil {
 		return nil, err
 	}
-	appInstances, _, err := executeRead(ctx, o, client.ApplicationInstanceAPI.GetApplicationInstance(ctx, instanceID).Execute)
-
-	if err != nil {
-		return nil, err
-	}
-	if len(appInstances) != 1 {
-		return nil, fmt.Errorf("expected one instance, got %d", len(appInstances))
-	}
-	appInstance := appInstances[0]
-	if appInstance.Id != instanceID {
-		return nil, fmt.Errorf("provider returned a different instance")
-	}
-	appInstance.Metadata = createMetaData(metaData).Metadata
-	appInstance.NumPlayers = int32(playerCount)
-
-	request := client.ApplicationInstanceAPI.UpdateApplicationInstance(ctx, instanceID).ApplicationInstance(appInstance)
+	// ONE exposes player counts and status as read-only telemetry. Submit only
+	// the metadata patch; a GET followed by a full-object PUT would replay fields
+	// owned by Arcus and could overwrite unrelated mutable properties.
+	request := client.ApplicationInstanceAPI.UpdateApplicationInstance(ctx, instanceID).MetadataPatchCollection(createMetaData(metaData))
 	updated, _, err := request.Execute()
 
 	if err != nil {
@@ -288,8 +272,8 @@ func parseMetadata(metadata []openapi.Metadata) map[string]any {
 	return parsedMetadata
 }
 
-func createMetaData(metaData map[string]any) openapi.MetadataCollection {
-	parsedMetaData := make([]openapi.Metadata, 0)
+func createMetaData(metaData map[string]any) openapi.MetadataPatchCollection {
+	parsedMetaData := make([]openapi.MetadataChange, 0)
 	keys := make([]string, 0, len(metaData))
 	for key := range metaData {
 		keys = append(keys, key)
@@ -300,12 +284,14 @@ func createMetaData(metaData map[string]any) openapi.MetadataCollection {
 		if key == ApplicationId || key == I3dFilters || strings.HasPrefix(key, "i3d_") {
 			continue
 		}
-		parsedMetaData = append(parsedMetaData, openapi.Metadata{
-			Key:   key,
-			Value: fmt.Sprintf("%v", value),
-		})
+		var text *string
+		if value != nil {
+			formatted := fmt.Sprintf("%v", value)
+			text = &formatted
+		}
+		parsedMetaData = append(parsedMetaData, openapi.MetadataChange{Key: key, Value: text})
 	}
-	return openapi.MetadataCollection{Metadata: parsedMetaData}
+	return openapi.MetadataPatchCollection{Metadata: parsedMetaData}
 }
 
 func createRangedData(limit int) string {
