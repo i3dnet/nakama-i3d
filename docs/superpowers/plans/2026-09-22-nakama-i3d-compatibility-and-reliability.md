@@ -391,7 +391,7 @@ sh scripts/smoke.sh
 - [x] Prepare a partner resolution table: HL-01 public paths and updated guide; HL-02 exact compatibility plus tested plugin; HL-03 clean installation evidence. Draft the corresponding guide patch/message for review, without sending it automatically.
 - [ ] Select a release version consistent with repository tags and the public API migration. Validate the candidate before publishing, then run scripts/check-install.sh against the actual published version using GOWORK=off and a fresh module cache.
 - [ ] Identify the live artifact/configuration and prepare its migration and rollback. Retain the prior plugin image and config.
-- [ ] Run an authorized staging test against a designated i3D fleet: metadata, readiness, notifications, cleanup, transient failures and state reconciliation.
+- [x] Superseded on 29 September: verify metadata, readiness, notifications, cleanup, transient failures and state reconciliation locally. No staging environment exists; see the current release checklist for evidence and live-provider limits.
 - [ ] Publish/deploy only after the concrete candidate and release evidence are reviewed and authorized.
 
 ## Definition of done
@@ -426,4 +426,4 @@ Partner handoff is settled: the user will send the new online-docs.md draft to H
 
 The ordered PRs and exact verification commands/results are recorded in ../../release-checklist.md. Native runtime tests refined two assumptions from planning: conditional-delete errors differ from write conflicts, and sort expressions must use value.player_count/value.create_time. The smoke harness forced and verified both against Nakama 3.41.0/PostgreSQL. Two clients also verified storage before notifications, one allocation, trusted unwrapped lifecycle payloads, missed-update recovery, invalid readiness and timeout. PR #24 closes the storage-pagination boundary: allocation and Nakama storage-update timestamps exclude records changed during the pass even when their current version is captured on a later page; deterministic regressions and the native smoke verify preservation.
 
-Join remains the explicitly limited local-admission contract rather than a new expiring reservation service. Task 9 is complete for candidate installation, compiled documentation and partner preparation; live deployment identity, staging, tagging, merging and publication remain the external release gates listed above. No tags, merges, partner messages or deployments were performed.
+Join remains the explicitly limited local-admission contract rather than a new expiring reservation service. Task 9 is complete for candidate installation, compiled documentation and partner preparation; live deployment identity, tagging, merging and publication remain the external release gates listed above. Local verification replaces the historical staging step; staging is not a release prerequisite. No tags, merges, partner messages or deployments were performed.

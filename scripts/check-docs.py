@@ -58,7 +58,8 @@ with tempfile.TemporaryDirectory(prefix="i3d-docs-") as directory:
         (consumer / "filters_test.go").write_text(
             'package main\nimport ("testing"; fleetmanager "github.com/i3dnet/nakama-i3d")\n'
             'func TestDocumentedFilters(t *testing.T) {\n' + filters[0] +
-            '\nif metadata["i3dFilters"] == "" { t.Fatal("missing filters") }\n}\n')
+            '\nencodedFilters, ok := metadata["i3dFilters"].(string)\n'
+            'if !ok || encodedFilters == "" { t.Fatal("missing, non-string, or empty filters") }\n}\n')
         go("mod", "tidy")
         assert "replace " not in (consumer / "go.mod").read_text()
         go("test", "-mod=readonly", "./...")
