@@ -15,7 +15,7 @@ func GetApplicationInstance() *ApplicationInstance {
 	IPAddresses := make([]IPAddress, 0, 1)
 	IPAddresses = append(IPAddresses, IPAddress{
 		Private:   0,
-		IPAddress: "127.0.0.1",
+		IPAddress: "203.0.113.10",
 		IPVersion: 4,
 	})
 
@@ -27,7 +27,7 @@ func GetApplicationInstance() *ApplicationInstance {
 		FleetName:                 "Mock Fleet",
 		HostID:                    23344,
 		IsVirtual:                 0,
-		ApplicationID:             "725092305",
+		ApplicationID:             "6268349608002583795",
 		ApplicationName:           "Mock Application",
 		ApplicationType:           2,
 		ApplicationBuildID:        "23523524352",

@@ -1,5 +1,7 @@
 package models
 
+import "encoding/json"
+
 type ApplicationInstance struct {
 	Id                        string      `json:"id"`
 	DeploymentEnvironmentID   string      `json:"deploymentEnvironmentId"`
@@ -48,7 +50,7 @@ type OriginalMetadata struct {
 }
 
 type KeyValueMetadata struct {
-	Metadata []KeyValue `json:"metadata"`
+	Metadata []MetadataChange `json:"metadata"`
 }
 
 type KeyValue struct {
@@ -67,4 +69,9 @@ type IPAddress struct {
 	IPAddress string `json:"ipAddress"`
 	IPVersion int    `json:"ipVersion"`
 	Private   int    `json:"private"`
+}
+
+type MetadataChange struct {
+	Key   string          `json:"key"`
+	Value json.RawMessage `json:"value"`
 }
