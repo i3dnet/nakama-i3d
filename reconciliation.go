@@ -8,11 +8,16 @@ import (
 	"github.com/heroiclabs/nakama-common/runtime"
 	"github.com/i3dnet/nakama-i3d/internal/clients"
 	"github.com/i3dnet/nakama-i3d/internal/storage"
+	"sort"
 	"time"
 )
 
 func (fm *I3dFleetManager) providerScope() string {
-	return NewFilterBuilder().Add(applicationId, fm.cfg.ApplicationId).Add(FleetId, fm.cfg.FleetId).Query()
+	return fm.providerApplicationScope(fm.cfg.ApplicationId)
+}
+
+func (fm *I3dFleetManager) providerApplicationScope(id string) string {
+	return NewFilterBuilder().Add(applicationId, id).Add(FleetId, fm.cfg.FleetId).Query()
 }
 func (fm *I3dFleetManager) runReconciliation() {
 	defer fm.operations.Done()
@@ -56,39 +61,65 @@ func (fm *I3dFleetManager) reconcileSnapshot(ctx context.Context, previous map[s
 	if err != nil {
 		return nil, err
 	}
-	provider := map[string]*runtime.InstanceInfo{}
-	cursor := ""
-	seen := map[string]bool{}
-	for {
-		if err := ctx.Err(); err != nil {
-			return nil, err
-		}
-		page, err := fm.client.ListApplicationInstances(ctx, fm.providerScope(), 100, cursor)
+	// Include application overrides recorded by Create, preserving fleet scope.
+	applications := map[string]bool{fm.cfg.ApplicationId: true}
+	byID := map[string]*api.StorageObject{}
+	ownedApplications := map[string]string{}
+	allocatedTimes := map[string]time.Time{}
+	for _, obj := range snapshot {
+		id, allocatedAt, err := storage.SnapshotApplicationID(obj, fm.cfg.FleetId)
 		if err != nil {
 			return nil, err
 		}
-		if page == nil {
-			return nil, fmt.Errorf("provider returned a nil page")
+		byID[obj.Key] = obj
+		ownedApplications[obj.Key] = id
+		allocatedTimes[obj.Key] = allocatedAt
+		if id != "" {
+			applications[id] = true
 		}
-		for _, instance := range page.Instances {
-			if instance == nil || instance.Id == "" {
-				return nil, fmt.Errorf("provider returned an invalid instance")
-			}
-			if _, duplicate := provider[instance.Id]; duplicate {
-				return nil, fmt.Errorf("provider repeated instance across pages")
-			}
-			provider[instance.Id] = instance
-		}
-		if page.NextCursor == "" {
-			break
-		}
-		if seen[page.NextCursor] {
-			return nil, fmt.Errorf("provider cursor repeated")
-		}
-		seen[page.NextCursor] = true
-		cursor = page.NextCursor
 	}
-	byID := map[string]*api.StorageObject{}
+	applicationIDs := make([]string, 0, len(applications))
+	for id := range applications {
+		applicationIDs = append(applicationIDs, id)
+	}
+	sort.Strings(applicationIDs)
+	provider := map[string]*runtime.InstanceInfo{}
+	providerApplications := map[string]string{}
+	// Finish every application scan before refreshing or deleting any snapshot.
+	for _, id := range applicationIDs {
+		cursor := ""
+		seen := map[string]bool{}
+		for {
+			if err := ctx.Err(); err != nil {
+				return nil, err
+			}
+			page, err := fm.client.ListApplicationInstances(ctx, fm.providerApplicationScope(id), 100, cursor)
+			if err != nil {
+				return nil, err
+			}
+			if page == nil {
+				return nil, fmt.Errorf("provider returned a nil page")
+			}
+			for _, instance := range page.Instances {
+				if instance == nil || instance.Id == "" {
+					return nil, fmt.Errorf("provider returned an invalid instance")
+				}
+				if _, duplicate := provider[instance.Id]; duplicate {
+					return nil, fmt.Errorf("provider repeated instance across pages or applications")
+				}
+				provider[instance.Id] = instance
+				providerApplications[instance.Id] = id
+			}
+			if page.NextCursor == "" {
+				break
+			}
+			if seen[page.NextCursor] {
+				return nil, fmt.Errorf("provider cursor repeated")
+			}
+			seen[page.NextCursor] = true
+			cursor = page.NextCursor
+		}
+	}
 	missing := map[string]string{}
 	createdDuringScan := map[string]bool{}
 	skew := fm.cfg.ReconcileClockSkew
@@ -97,11 +128,8 @@ func (fm *I3dFleetManager) reconcileSnapshot(ctx context.Context, previous map[s
 	}
 	cutoff := now.Add(-skew)
 	for _, obj := range snapshot {
-		byID[obj.Key] = obj
-		scoped, allocatedAt, err := storage.SnapshotInScope(obj, fm.cfg.ApplicationId, fm.cfg.FleetId)
-		if err != nil {
-			return nil, err
-		}
+		scoped := ownedApplications[obj.Key] != ""
+		allocatedAt := allocatedTimes[obj.Key]
 		// Storage pagination is not a transaction-wide snapshot. An allocation
 		// may be written after this pass starts but before its page is read.
 		// Include the configured bound on inter-node clock skew and precision.
@@ -132,7 +160,7 @@ func (fm *I3dFleetManager) reconcileSnapshot(ctx context.Context, previous map[s
 		if incoming.Status != clients.ApplicationInstanceStatus[5] {
 			continue
 		}
-		if err := fm.storage.ReconcileGameSession(ctx, byID[id], incoming, fm.cfg.ApplicationId, fm.cfg.FleetId); err != nil && !errors.Is(err, runtime.ErrStorageRejectedVersion) {
+		if err := fm.storage.ReconcileGameSession(ctx, byID[id], incoming, providerApplications[id], fm.cfg.FleetId); err != nil && !errors.Is(err, runtime.ErrStorageRejectedVersion) {
 			return nil, err
 		}
 	}

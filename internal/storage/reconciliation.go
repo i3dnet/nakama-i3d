@@ -47,12 +47,22 @@ func (fms *FleetManagerStorageService) SnapshotGameSessions(ctx context.Context)
 // SnapshotInScope reports explicit ownership; legacy/foreign records are not
 // removed based only on absence from a differently scoped provider query.
 func SnapshotInScope(obj *api.StorageObject, applicationID, fleetID string) (bool, time.Time, error) {
+	ownedApplication, allocatedAt, err := SnapshotApplicationID(obj, fleetID)
+	return ownedApplication != "" && ownedApplication == applicationID, allocatedAt, err
+}
+
+// SnapshotApplicationID returns the owning application within a fleet scope.
+// Legacy records and records outside that fleet cannot expand reconciliation.
+func SnapshotApplicationID(obj *api.StorageObject, fleetID string) (string, time.Time, error) {
 	record, err := decodeRecord(obj.Value, obj.Key)
 	if err != nil {
-		return false, time.Time{}, err
+		return "", time.Time{}, err
 	}
 	fleet, _ := record.Metadata["i3d_fleet_id"].(string)
-	return record.Local.ApplicationID != "" && record.Local.ApplicationID == applicationID && (fleetID == "" || fleet == fleetID), record.Local.AllocatedAt, nil
+	if fleetID != "" && fleet != fleetID {
+		return "", record.Local.AllocatedAt, nil
+	}
+	return record.Local.ApplicationID, record.Local.AllocatedAt, nil
 }
 
 // ReconcileGameSession applies exactly the version observed before the provider
