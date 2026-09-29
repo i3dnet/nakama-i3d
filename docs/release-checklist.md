@@ -1,6 +1,6 @@
-# Release candidate checklist — 24 September 2026
+# Release candidate checklist — updated 29 September 2026
 
-Implementation candidate: 94c69e0e6933795d33a34dc06759632da1fe5895, publicly resolved as v0.0.0-20260928123344-94c69e0e6933. The initial main review used f26ac9d83ebb1a70f492db70b69eacf842403cb6. Upstream main is now 9a20297 after #8 was merged; this work has not merged PRs. The deployed artifact is unknown.
+Implementation candidate: ab4a6f60034d8bf78066b4da235251476920e7a2, publicly resolved as v0.0.0-20260929091528-ab4a6f60034d. The initial main review used f26ac9d83ebb1a70f492db70b69eacf842403cb6. Upstream main is now 9a20297 after #8 was merged; this work has not merged PRs. The deployed artifact is unknown.
 
 ## Review layout
 
@@ -24,7 +24,7 @@ The [superseded stack map](reviews/2026-09-24-superseded-pr-stack.md) retains th
 - [x] Actual storage-index sorting, tied player counts with descending creation times, and continuation pages. Sort fields use value.player_count and value.create_time.
 - [x] Provider multi-page reconciliation, missed termination without restart, invalid readiness, exactly one restart for a confirmed failed allocation, and bounded timeout without allocation retry.
 - [x] Unit regression coverage for completed-result precedence, fresh persistence and cleanup contexts, cleanup error reporting, callback lifetime/one terminal callback, failed provider pages, Create/Join/reallocation races, storage pagination boundaries and bounded clock skew, OAuth refresh and cancellation.
-- [x] Fresh public Go module cache, no clone/replace/private GitLab credentials: scripts/check-install.sh at 94c69e0 resolves the pseudo-version above and compiles the real example.
+- [x] Fresh public Go module cache, no clone/replace/private GitLab credentials: scripts/check-install.sh at ab4a6f6 resolves the pseudo-version above and compiles the real example.
 - [x] Partner guide Go files and filter block compiled/tested in an isolated consumer through scripts/check-docs.py. CI recompiles the actual Markdown blocks.
 - [x] Documented unwrapped JSON lifecycle payloads executed against Nakama's HTTP-key endpoint.
 - [x] Ordinary plugin builds exclude the i3d_smoke test RPCs.
@@ -49,29 +49,35 @@ The [next runtime Balanced review](https://github.com/i3dnet/nakama-i3d/pull/42#
 | Additional finding | Resolution |
 | --- | --- |
 | Reported player count exceeds local capacity | Validate against stored capacity before the provider call and again in the versioned mutation; reject over-capacity reports as INVALID_ARGUMENT. |
-| One API retains the previous player count | Pass the reported count through the provider client and write numPlayers alongside metadata. |
+| One API retains the previous player count | Corrected after documentation review: numPlayers is read-only Arcus telemetry. Preserve the Nakama report locally and send only metadata to ONE. The earlier PUT-count fix and matching mock assertion were invalid. |
 | Shutdown grace is shorter than cleanup budget | Example and smoke Nakama configs allow 45 seconds; Compose allows 60 seconds before forced termination, exceeding the default 30-second cleanup budget. |
 | Generated build-provisioning endpoint leaves an ID placeholder in the URL | Align the generated route and source schema placeholder; an HTTP-capture regression verifies the exact path. |
 | Guide verifier omits the import-only block | Compile that block in its own Go file and reject unrecognized blocks. A temporary malformed import was accepted before the fix and rejected afterward. |
 | Historical review record claims an obsolete active pin | Describe the prior candidate in the past tense and link to this current checklist. |
 
-The additional runtime fixes are included in 60cea49. Root and mock-provider race suites and vet pass with TZ=UTC; the generated endpoint HTTP capture and real Nakama/PostgreSQL lifecycle smoke pass, including provider player-count propagation. Fresh public consumer installation resolves the candidate above and builds the real example without replace.
+The additional runtime fixes are included in 60cea49. Root and mock-provider race suites and vet pass with TZ=UTC; the generated endpoint HTTP capture and real Nakama/PostgreSQL lifecycle smoke pass, including a provider player-count propagation assertion that was later withdrawn because the mock accepted an unsupported write. Fresh public consumer installation resolves the candidate above and builds the real example without replace.
 
-On 28 September, Patrick's entry-log feedback moved the Update method-entry event before input validation. His zero-delay backoff finding now has deterministic coverage for positive, submillisecond and disabled maxima. The test-client protobuf requirement is aligned to 1.36.12. The generation findings above remain separate unresolved provider-contract blockers.
+On 28 September, Patrick's entry-log feedback moved the Update method-entry event before input validation. His zero-delay backoff finding now has deterministic coverage for positive, submillisecond and disabled maxima. The test-client protobuf requirement is aligned to 1.36.12. The generation findings were reassessed against the documented Arcus lifecycle on 29 September; see the assessment below.
+
+## Arcus contract correction and local-only verification
+
+The [lifecycle assessment](reviews/2026-09-28-lifecycle-generation-blockers.md) records the provider documentation, corrected assumptions and the remaining review decision. Metadata updates now contain only writable metadata, preserve explicit null deletion and merge keys. Nakama admission counts remain independent of Arcus telemetry. The local mock refuses read-only writes and excludes occupied/allocated/allocating instances. Tests exercise update, release and reuse.
+
+There is no staging environment. Validation uses local unit/race tests, HTTP capture and a contract mock, with real Nakama/PostgreSQL containers loading the plugin; CI repeats these checks. No live i3D operation has been executed. Host-agent timing, Arcus delivery and real propagation delay remain unverified. The earlier assertion that a new conditional provider API must exist before release is superseded; the open review threads still require an explicit maintainer disposition.
 
 ## Remaining release gates
 
-- [ ] Resolve the two [lifecycle allocation-identity blockers](reviews/2026-09-28-lifecycle-generation-blockers.md). The bundled provider API has no confirmed atomic generation condition for updates/restarts; local storage guards cannot protect reused server IDs. These review threads remain open.
+- [ ] Have the maintainer disposition the two [lifecycle review threads](reviews/2026-09-28-lifecycle-generation-blockers.md) against the documented single-owner release sequence. They remain open; this change does not claim stale caller protection across independent release/reallocation.
 
 - [ ] Complete human review and merge both replacement PRs. No PR has been merged by this work.
 - [ ] Choose the first public root-module version. The repository has no tags; v0.1.0 is proposed, not created.
 - [ ] Identify the live commit/image digest, Nakama version, runtime/process configuration source, application/fleet and headless-server authentication.
 - [ ] Confirm whether a security backport is needed for an existing 3.26 deployment. A 3.41 plugin cannot be substituted into the old runtime.
-- [ ] Validate on an explicitly designated staging i3D fleet: real One API/Arcus metadata delivery, readiness, endpoint assignment, authentication, transient failure and propagation delay.
-- [ ] Tune timeouts and reconciliation grace to staging measurements. Two successful but incomplete provider scans can still falsely imply absence.
+- [x] Run the local test/race/vet, plugin build/load, guide compilation and allocation/update/release/reuse smoke checks for candidate ab4a6f6. Repeat if the runtime changes.
+- [ ] Review timeout and reconciliation settings for the intended rollout. There are no staging measurements; two successful but incomplete provider scans can still falsely imply absence. Disable absence-based reconciliation if its consistency assumptions are not acceptable.
 - [ ] Retain the previous runtime/plugin image and configuration, take the normal database backup, document the rollout owner and rollback steps.
 - [ ] Review stored-session compatibility before rolling back: old records remain readable, but older code ignores new admission/version semantics and is not safe for concurrent mixed-version writers.
 - [ ] Publish an approved tag, rerun scripts/check-install.sh against it, replace the candidate pin in online-docs.md/readme.md and complete the normal deployment approval.
 - [ ] User sends the final partner draft. No external partner message has been sent.
 
-Live deployment identity and staging access are external gates. Local mocks and a successfully loaded plugin do not establish live provider readiness or production safety.
+Live deployment identity and rollout approval remain owner decisions. Local verification is the available release evidence; it does not establish live provider timing or end-to-end production safety.

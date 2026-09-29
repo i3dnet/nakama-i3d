@@ -4,7 +4,7 @@
 >
 > This is a replacement draft for the [current i3D integration guide](https://heroiclabs.com/docs/nakama/guides/concepts/i3d-integration/). The implementation candidate targets Nakama 3.41.0 and has passed local unit/race checks, real plugin loading and the full lifecycle smoke test. It is in review; no release tag or production deployment has been published.
 >
-> The legacy main revision, `9a20297`, uses Nakama 3.26.0 / nakama-common 1.36.0 and a nested GitLab module path. This guide uses the implementation candidate commit `94c69e0e6933795d33a34dc06759632da1fe5895`. Replace that pin with the approved release version after merging and staging validation. The final section lists the remaining publication gates.
+> The legacy main revision, `9a20297`, uses Nakama 3.26.0 / nakama-common 1.36.0 and a nested GitLab module path. This guide uses the implementation candidate commit `ab4a6f60034d8bf78066b4da235251476920e7a2`. Replace that pin with the approved release version after merging and completing the local release checks. The final section lists the remaining publication gates.
 
 Use Nakama to authenticate players and find matches, then allocate a dedicated game server through i3D.net. Players receive the server's connection details through a Nakama notification and connect directly using your game's networking transport.
 
@@ -86,7 +86,7 @@ To evaluate the candidate, run these commands in your Go runtime project:
 # Only needed for a new project:
 go mod init example.com/nakama-i3d-game
 
-go get github.com/i3dnet/nakama-i3d@94c69e0e6933795d33a34dc06759632da1fe5895
+go get github.com/i3dnet/nakama-i3d@ab4a6f60034d8bf78066b4da235251476920e7a2
 go get github.com/heroiclabs/nakama-common@v1.48.0 google.golang.org/protobuf@v1.36.12
 ~~~
 
@@ -402,7 +402,9 @@ Content-Type: application/json
 }
 ~~~
 
-Use the i3D application-instance ID and the exact `player_count` field name. Send counts from zero through the stored session capacity and game-owned metadata only. Counts outside that range return INVALID_ARGUMENT. Accepted counts update both Nakama admission state and One API's player count. Treat the submitted metadata as the current game metadata you intend to retain; do not rely on an undocumented partial-merge behavior.
+Use the i3D application-instance ID and the exact `player_count` field name. Send counts from zero through the stored session capacity and game-owned metadata only. Counts outside that range return INVALID_ARGUMENT. Accepted counts update Nakama admission state. ONE's player count is read-only telemetry reported separately by the headless server through [Arcus V2 live state](https://docs.i3d.net/game-hosting/game-integration/index/index-1/request-response#live-state); this RPC does not change that telemetry.
+
+Metadata is a patch: supplied keys are added or updated, omitted keys remain, an empty string is retained, and a JSON null deletes the key. For example, `"metadata": {"map": "arena", "old_mode": null}` updates the map and removes old_mode. Allocation uses the same [documented merge semantics](https://docs.i3d.net/game-hosting/elements/application/metadata).
 
 The `unwrap` option allows the JSON body to be sent directly. Your Nakama SDK's HTTP-key RPC overload can also make the call.
 
@@ -425,7 +427,9 @@ Content-Type: application/json
 }
 ~~~
 
-Coordinate these policies so the same session does not trigger multiple restart actions. Do not blindly repeat a restart after an ambiguous network failure; check the instance state first.
+Use one owner for release. Stop producing player reports and finish outstanding updates before releasing the instance. Choose one of the policies above; do not independently return the server to ONLINE or exit and then send a delayed restart for the previous match. Do not blindly repeat a restart after an ambiguous network failure; check the instance state first. The restart response acknowledges the provider operation, not completion of game-server startup; the next allocation must still complete the normal readiness/allocation handshake.
+
+An explicit restart can interrupt connected players. It uses the application/build stop method, defaulting to hard kill; graceful stopping must be configured explicitly. Automatic scaling/allocation protections do not turn an explicit restart into a conditional operation.
 
 Always use the connection details returned for the next allocation. Address or port assignments may change, and an application-instance ID can be reused for a later game session.
 
@@ -433,7 +437,7 @@ The adapter takes a complete storage snapshot, then scans every provider page fo
 
 Absence remains an eventual-consistency assumption: choose a grace period longer than observed provider propagation delays, or disable reconciliation if successful listings cannot reliably establish absence. Continue sending lifecycle reports promptly. Application overrides need a separately scoped reconciliation worker. Graceful shutdown stops background work; clients still need recovery after server crashes.
 
-The current candidate has an unresolved allocation-identity race: delayed lifecycle requests carry only the application-instance ID and can affect a later allocation that reuses it. Local storage version checks cannot undo provider updates or restarts. An atomic provider condition, or a proven policy preventing reuse during these calls, is a release gate. See the [open lifecycle review blockers](docs/reviews/2026-09-28-lifecycle-generation-blockers.md).
+Lifecycle RPCs identify an instance rather than an individual match. The provider rejects already allocated/allocating instances, but a stale request sent after an independent release may affect the next match on that instance. Follow the release ordering above. The two open review threads and the limits of local verification are recorded in the [lifecycle contract assessment](docs/reviews/2026-09-28-lifecycle-generation-blockers.md).
 
 ## Get, list, and join sessions
 
@@ -527,13 +531,15 @@ Nakama exposes i3d_allocation_total / i3d_allocation_duration and i3d_reconcilia
 
 Remove this section and the opening draft note when the release evidence is complete.
 
+This project has no staging environment. Verification uses local unit/race tests and a contract mock, plus real Nakama/PostgreSQL containers; CI repeats these checks. The mock does not exercise live Arcus transport or provider timing.
+
 Candidate checks: the public root module installs without cloning or replace; the guide's complete Go files and filter example are compiled in a clean consumer; the exact runtime loads the plugin; the two-client smoke validates metadata, notifications, native storage concurrency and cursor sorting, HTTP-key lifecycle payloads, missed-update recovery, invalid readiness and timeout. Unit/race tests cover OAuth, request capture, callback lifetime and concurrent session state.
 
 Publication gates remain:
 - Merge the runtime and documentation PRs and select the release tag (no tags existed at review; v0.1.0 is proposed for the first public root module).
 - Repeat clean-consumer installation against the approved tag.
 - Identify the currently deployed image/commit, Nakama version, configuration source and game-server authentication; prepare migration and rollback.
-- Run an authorized staging allocation/restart test on a designated i3D fleet, including Arcus metadata/readiness and propagation delay.
+- Complete the local test/build/smoke checks, have the maintainer disposition the two lifecycle review threads, and record the unverified live-provider timing limits. No staging environment is required by this checklist.
 - Replace the candidate pin with the approved release version, remove the draft/publication notes, and publish the guide.
 
 The user will send this draft to Heroic Labs. No partner message, release tag or deployment has been sent or published by this work.

@@ -20,6 +20,6 @@ The comparison with Heroic Labs' GameLift adapter and Edgegap, including pinned 
 
 Suggested accompanying message for the user to send:
 
-> We've prepared a replacement i3D integration guide and implementation candidate. The library is now installable from the public repository root; the candidate is pinned to Nakama 3.41.0/common 1.48.0 and has passed real plugin loading and a two-client lifecycle smoke test. The draft also updates configuration, server authentication, callback lifetime and the documented Join limitations. Please review the attached online-docs.md. We'll replace the candidate commit with the approved release tag after review and i3D staging validation.
+> We've prepared a replacement i3D integration guide and implementation candidate. The library is now installable from the public repository root; the candidate is pinned to Nakama 3.41.0/common 1.48.0 and has passed real plugin loading and a two-client lifecycle smoke test. The draft also updates configuration, server authentication, callback lifetime and the documented Join limitations. Please review the attached online-docs.md. We'll replace the candidate commit with the approved release tag after review and the local release checks. Validation uses local containers and a provider contract mock; we have no staging environment.
 
 No message was sent automatically.

@@ -1,5 +1,8 @@
 # Nakama–i3D Compatibility and Reliability Implementation Plan
 
+> 29 September update: the project owner confirmed there is no staging environment. Historical staging steps below are superseded by the [current release checklist](../../release-checklist.md), which uses local verification and records unverified live-provider limits.
+
+
 > **For agentic workers:** Use superpowers:executing-plans to execute this plan task by task. Use superpowers:subagent-driven-development only if the user chooses delegation. Steps use checkboxes for tracking. The user approved implementation and small PRs on 2026-09-22. Implementation is complete through the candidate PR stack; publication/deployment gates remain open. See ../../release-checklist.md for current evidence.
 
 **Goal:** Make the integration installable from its actual GitHub repository, compatible with a precisely supported Nakama release, and reliable across the allocation/session lifecycle, addressing both the main-branch review and Heroic Labs' comments.

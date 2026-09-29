@@ -10,7 +10,7 @@ This candidate is under review. Main at 9a20297 is the legacy Nakama 3.26 integr
 | nakama-common | 1.48.0 |
 | Go | 1.27.1 |
 | Shared protobuf | 1.36.12 |
-| Implementation commit | 94c69e0e6933795d33a34dc06759632da1fe5895 |
+| Implementation commit | ab4a6f60034d8bf78066b4da235251476920e7a2 |
 
 The Dockerfile pins the matching image digests. Other runtime/toolchain combinations need their own build/load test.
 
@@ -18,7 +18,7 @@ The Dockerfile pins the matching image digests. Other runtime/toolchain combinat
 
 ~~~sh
 go mod init example.com/nakama-game
-go get github.com/i3dnet/nakama-i3d@94c69e0e6933795d33a34dc06759632da1fe5895
+go get github.com/i3dnet/nakama-i3d@ab4a6f60034d8bf78066b4da235251476920e7a2
 ~~~
 
 Import github.com/i3dnet/nakama-i3d (package fleetmanager) and github.com/i3dnet/nakama-i3d/config. External installation needs no clone or local replace. Pin the approved tag after release; @latest is not the candidate path while main retains the old layout.
@@ -50,7 +50,7 @@ The development stack uses a new PostgreSQL 16 data_v16 volume, preserving old P
 - Create returns (map[string]string, error); synchronous metadata is nil. Accepted work runs independently of the matchmaking hook, with a deadline and shutdown cancellation. Success follows storage persistence. Process-local callbacks are not durable after a crash.
 - One API allocation must return one ALLOCATED instance with a usable public IP/port. Allocation, restart and writes are not blindly retried.
 - Delete requests a provider restart. Reconciliation only repairs storage, after complete scoped scans and version checks.
-- Lifecycle RPCs reject player-session callers. Trusted game servers use Nakama's runtime.http_key and report the absolute player_count.
+- Lifecycle RPCs reject player-session callers. Trusted game servers use Nakama's runtime.http_key and report the absolute player_count for local admission. Arcus reports ONE telemetry independently. Metadata updates merge keys; an explicit null deletes a key.
 - Join has versioned local capacity accounting and partial admission. It does not issue expiring reservations or player authentication tokens; authoritative count updates reset local deduplication.
 - An empty List query pages through provider allocations. Nonempty queries use the Nakama index, e.g. +value.player_count:>=2. Preserve the query, limit and listing mode when following a cursor.
 
