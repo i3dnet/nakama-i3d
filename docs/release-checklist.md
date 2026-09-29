@@ -1,6 +1,6 @@
 # Release candidate checklist — updated 29 September 2026
 
-Implementation candidate: 25bb29b6dcf8e44b346b76c2cef8e9874acf9ddb, publicly resolved as v0.0.0-20260929092906-25bb29b6dcf8. The initial main review used f26ac9d83ebb1a70f492db70b69eacf842403cb6. Upstream main is now 9a20297 after #8 was merged; this work has not merged PRs. The deployed artifact is unknown.
+Implementation candidate: 352b0a2233ffe896e97b27b95c1678b41552c2e3, publicly resolved as v0.0.0-20260929094502-352b0a2233ff. The initial main review used f26ac9d83ebb1a70f492db70b69eacf842403cb6. Upstream main is now 9a20297 after #8 was merged; this work has not merged PRs. The deployed artifact is unknown.
 
 ## Review layout
 
@@ -24,7 +24,7 @@ The [superseded stack map](reviews/2026-09-24-superseded-pr-stack.md) retains th
 - [x] Actual storage-index sorting, tied player counts with descending creation times, and continuation pages. Sort fields use value.player_count and value.create_time.
 - [x] Provider multi-page reconciliation, missed termination without restart, invalid readiness, exactly one restart for a confirmed failed allocation, and bounded timeout without allocation retry.
 - [x] Unit regression coverage for completed-result precedence, fresh persistence and cleanup contexts, cleanup error reporting, callback lifetime/one terminal callback, failed provider pages, Create/Join/reallocation races, storage pagination boundaries and bounded clock skew, OAuth refresh and cancellation.
-- [x] Fresh public Go module cache, no clone/replace/private GitLab credentials: scripts/check-install.sh at 25bb29b resolves the pseudo-version above and compiles the real example.
+- [x] Fresh public Go module cache, no clone/replace/private GitLab credentials: scripts/check-install.sh at 352b0a2 resolves the pseudo-version above and compiles the real example.
 - [x] Partner guide Go files and filter block compiled/tested in an isolated consumer through scripts/check-docs.py. CI recompiles the actual Markdown blocks.
 - [x] Documented unwrapped JSON lifecycle payloads executed against Nakama's HTTP-key endpoint.
 - [x] Ordinary plugin builds exclude the i3d_smoke test RPCs.
@@ -75,7 +75,7 @@ The September 29 Balanced follow-up also found a generated telemetry route with 
 - [ ] Choose the first public root-module version. The repository has no tags; v0.1.0 is proposed, not created.
 - [ ] Identify the live commit/image digest, Nakama version, runtime/process configuration source, application/fleet and headless-server authentication.
 - [ ] Confirm whether a security backport is needed for an existing 3.26 deployment. A 3.41 plugin cannot be substituted into the old runtime.
-- [x] Run the local test/race/vet, plugin build/load, guide compilation and allocation/update/release/reuse smoke checks for candidate 25bb29b. Repeat if the runtime changes.
+- [x] Run the local test/race/vet, plugin build/load, guide compilation and allocation/update/release/reuse smoke checks for candidate 352b0a2. Repeat if the runtime changes.
 - [ ] Review timeout and reconciliation settings for the intended rollout. There are no staging measurements; two successful but incomplete provider scans can still falsely imply absence. Disable absence-based reconciliation if its consistency assumptions are not acceptable.
 - [ ] Retain the previous runtime/plugin image and configuration, take the normal database backup, document the rollout owner and rollback steps.
 - [ ] Review stored-session compatibility before rolling back: old records remain readable, but older code ignores new admission/version semantics and is not safe for concurrent mixed-version writers.
@@ -83,3 +83,5 @@ The September 29 Balanced follow-up also found a generated telemetry route with 
 - [ ] User sends the final partner draft. No external partner message has been sent.
 
 Live deployment identity and rollout approval remain owner decisions. Local verification is the available release evidence; it does not establish live provider timing or end-to-end production safety.
+
+The next Balanced follow-up identified application overrides excluded from reconciliation. The worker now scans every application recorded on owned sessions, keeps fleet filtering, preserves each application identity on refresh, and makes no changes until all application pages complete. Local regressions cover missed termination, replacement generations, metadata refresh with admission preservation, other-fleet exclusion and later-application failure. The guide filter check now rejects missing, non-string and empty values; the historical plan no longer lists staging as an active gate.
