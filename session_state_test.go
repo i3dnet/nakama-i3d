@@ -17,16 +17,14 @@ import (
 	"go.uber.org/mock/gomock"
 )
 
-type storageInitializer struct{ runtime.Initializer }
+// Any authenticated client may write the session collection under its own user ID.
+const playerUserID = "8f1c2b7e-4d5a-4c3b-9e2f-1a2b3c4d5e6f"
 
-func (storageInitializer) RegisterStorageIndex(string, string, string, []string, []string, int, bool) error {
-	return nil
-}
 func sessionFixture(t *testing.T, count, capacity int) (*I3dFleetManager, *tests.MemoryNakama, *mock.MockApplicationInstance) {
 	t.Helper()
 	nk := tests.NewMemoryNakama()
 	logger := tests.NewMockLogger()
-	cache, err := storage.NewFleetManagerStorageService(nk, storageInitializer{}, logger)
+	cache, err := storage.NewFleetManagerStorageService(nk, tests.MemoryInitializer{Nakama: nk}, logger)
 	require.NoError(t, err)
 	instance := &runtime.InstanceInfo{Id: "instance", PlayerCount: count, Status: "ALLOCATED", Metadata: map[string]any{MaxPlayers: capacity}}
 	data, err := json.Marshal(instance)
@@ -242,4 +240,31 @@ func TestDeleteCompletesAfterConcurrentJoinWithoutRestartingTwice(t *testing.T) 
 	require.NoError(t, fm.Delete(context.Background(), "instance"))
 	_, err := fm.storage.GetGameSessionFromStorage(context.Background(), "instance")
 	require.ErrorIs(t, err, storage.ErrSessionNotFound)
+}
+
+func TestListReturnsOnlySystemOwnedSessions(t *testing.T) {
+	forged, err := json.Marshal(&runtime.InstanceInfo{Id: "forged", Status: "ALLOCATED", ConnectionInfo: &runtime.ConnectionInfo{IpAddress: "203.0.113.1", Port: 7777}})
+	require.NoError(t, err)
+	for name, value := range map[string]string{"corrupt": "{}", "forged": string(forged)} {
+		t.Run(name, func(t *testing.T) {
+			fm, nk, _ := sessionFixture(t, 0, 4)
+			_, err := nk.StorageWrite(context.Background(), []*runtime.StorageWrite{{Collection: storage.StorageI3dInstancesCollection, Key: "forged", UserID: playerUserID, Value: value}})
+			require.NoError(t, err)
+			list, _, err := fm.List(context.Background(), "+value.status:ALLOCATED", 10, "")
+			require.NoError(t, err)
+			require.Len(t, list, 1)
+			require.Equal(t, "instance", list[0].Id)
+		})
+	}
+}
+func TestUnchangedProviderRefreshDoesNotRewriteSession(t *testing.T) {
+	fm, nk, client := sessionFixture(t, 1, 3)
+	client.EXPECT().GetApplicationInstance(gomock.Any(), "instance").Return(&runtime.InstanceInfo{Id: "instance", Status: "ALLOCATED", Metadata: map[string]any{"map": "arena"}}, nil).Times(2)
+	_, err := fm.Get(context.Background(), "instance")
+	require.NoError(t, err)
+	before := nk.Writes
+	refreshed, err := fm.Get(context.Background(), "instance")
+	require.NoError(t, err)
+	require.Equal(t, before, nk.Writes, "an unchanged provider view must not bump the stored version")
+	require.Equal(t, 1, refreshed.PlayerCount)
 }

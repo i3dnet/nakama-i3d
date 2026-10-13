@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -20,19 +21,22 @@ func (fms *FleetManagerStorageService) SnapshotGameSessions(ctx context.Context)
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
-		objects, next, err := fms.nk.StorageList(ctx, "", "", StorageI3dInstancesCollection, 100, cursor)
+		objects, next, err := fms.nk.StorageList(ctx, "", systemUserID, StorageI3dInstancesCollection, 100, cursor)
 		if err != nil {
 			return nil, err
 		}
 		for _, obj := range objects {
+			if !systemOwned(obj.UserId) {
+				continue
+			}
 			if _, err := decodeRecord(obj.Value, obj.Key); err != nil {
 				return nil, err
 			}
 			if obj.Version == "" {
 				return nil, fmt.Errorf("%w: missing version", ErrCorruptSession)
 			}
+			result = append(result, obj)
 		}
-		result = append(result, objects...)
 		if next == "" {
 			return result, nil
 		}
@@ -118,6 +122,12 @@ func (fms *FleetManagerStorageService) ReconcileGameSession(ctx context.Context,
 		*incoming = *record.InstanceInfo
 		return nil
 	}
+	// Storage returns JSONB text (reordered keys, other spacing), so detect a
+	// no-op by comparing Go encodings of the stored and merged records.
+	stored, err := json.Marshal(record)
+	if err != nil {
+		return err
+	}
 	if err := MergeProviderInstance(record.InstanceInfo, incoming); err != nil {
 		return err
 	}
@@ -135,7 +145,7 @@ func (fms *FleetManagerStorageService) ReconcileGameSession(ctx context.Context,
 	if err != nil {
 		return err
 	}
-	if string(value) == snapshot.Value {
+	if bytes.Equal(value, stored) {
 		*incoming = *record.InstanceInfo
 		return nil
 	}

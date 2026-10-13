@@ -107,6 +107,31 @@ func TestReconciliationPreservesCapacityAndScopesAbsence(t *testing.T) {
 		require.NoError(t, err)
 	}
 }
+func TestReconciliationIgnoresRecordsNotOwnedBySystem(t *testing.T) {
+	forged, err := json.Marshal(&runtime.InstanceInfo{Id: "instance", Status: "ALLOCATED"})
+	require.NoError(t, err)
+	for name, value := range map[string]string{"corrupt": "{}", "same key": string(forged)} {
+		t.Run(name, func(t *testing.T) {
+			fm, nk, client := sessionFixture(t, 0, 4)
+			fm.cfg.ApplicationId = "123"
+			ownedSession(t, fm, "instance")
+			ctx := context.Background()
+			_, err := nk.StorageWrite(ctx, []*runtime.StorageWrite{{Collection: storage.StorageI3dInstancesCollection, Key: "instance", UserID: playerUserID, Value: value}})
+			require.NoError(t, err)
+			client.EXPECT().ListApplicationInstances(gomock.Any(), "applicationId=123", 100, "").Return(&clients.ApplicationInstanceListResponse{}, nil).Times(2)
+			now := time.Now().Add(time.Hour)
+			missing, err := fm.reconcileOnce(ctx, nil, now)
+			require.NoError(t, err)
+			_, err = fm.reconcileOnce(ctx, missing, now)
+			require.NoError(t, err)
+			_, err = fm.storage.GetGameSessionFromStorage(ctx, "instance")
+			require.ErrorIs(t, err, storage.ErrSessionNotFound, "the system record must still be cleaned")
+			objects, err := nk.StorageRead(ctx, []*runtime.StorageRead{{Collection: storage.StorageI3dInstancesCollection, Key: "instance", UserID: playerUserID}})
+			require.NoError(t, err)
+			require.Len(t, objects, 1, "records of other owners are ignored, not deleted")
+		})
+	}
+}
 func TestReconciliationGraceAndCursorLoop(t *testing.T) {
 	fm, _, client := sessionFixture(t, 0, 4)
 	fm.cfg.ApplicationId = "123"

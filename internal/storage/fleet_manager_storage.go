@@ -1,7 +1,9 @@
 package storage
 
 import (
+	"bytes"
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -16,6 +18,15 @@ const (
 	StorageI3dIndex               = "_i3D_instances_idx"
 	StorageI3dInstancesCollection = "_i3D_instances"
 )
+
+// systemUserID owns runtime writes that omit a user ID.
+const systemUserID = "00000000-0000-0000-0000-000000000000"
+
+// systemOwned reports whether this runtime wrote the record. Clients may write
+// the session collection under their own user ID, so only system records are trusted.
+func systemOwned(userID string) bool {
+	return userID == "" || userID == systemUserID
+}
 
 var ErrSessionNotFound = errors.New("session not found")
 var ErrCorruptSession = errors.New("corrupt stored session")
@@ -46,6 +57,11 @@ type FleetManagerStorageService struct {
 
 func NewFleetManagerStorageService(nk runtime.NakamaModule, initializer runtime.Initializer, logger runtime.Logger) (*FleetManagerStorageService, error) {
 	if err := initializer.RegisterStorageIndex(StorageI3dIndex, StorageI3dInstancesCollection, "", []string{"id", "create_time", "player_count", "metadata"}, []string{"create_time", "player_count"}, 1_000_000, false); err != nil {
+		return nil, err
+	}
+	if err := initializer.RegisterStorageIndexFilter(StorageI3dIndex, func(_ context.Context, _ runtime.Logger, _ *sql.DB, _ runtime.NakamaModule, write *runtime.StorageWrite) bool {
+		return systemOwned(write.UserID)
+	}); err != nil {
 		return nil, err
 	}
 
@@ -94,6 +110,9 @@ func (fms *FleetManagerStorageService) ListGameSessionsFromStorage(ctx context.C
 	}
 	results := make([]*runtime.InstanceInfo, 0, len(entries.GetObjects()))
 	for _, entry := range entries.GetObjects() {
+		if !systemOwned(entry.UserId) {
+			continue
+		}
 		info, err := decodeInstance(entry.Value, entry.Key)
 		if err != nil {
 			return nil, "", err
@@ -294,6 +313,11 @@ func (fms *FleetManagerStorageService) UpdateStorageGameSession(ctx context.Cont
 				committed = append(committed, record.InstanceInfo)
 				continue
 			}
+			// Storage returns JSONB text; compare Go encodings to skip no-op writes.
+			stored, err := json.Marshal(record)
+			if err != nil {
+				return nil, err
+			}
 			if changedGeneration {
 				// Invalidate the old admission state atomically with the page.
 				// Keep its identity/ownership for conditional reconciliation;
@@ -309,6 +333,9 @@ func (fms *FleetManagerStorageService) UpdateStorageGameSession(ctx context.Cont
 			value, err := json.Marshal(record)
 			if err != nil {
 				return nil, err
+			}
+			if bytes.Equal(value, stored) {
+				continue
 			}
 			writes = append(writes, &runtime.StorageWrite{Collection: StorageI3dInstancesCollection, Key: incoming.Id, Value: string(value), Version: object.Version, PermissionRead: 0, PermissionWrite: 0})
 		}
