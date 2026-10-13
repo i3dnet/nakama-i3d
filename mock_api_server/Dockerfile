@@ -1,14 +1,12 @@
-FROM golang:1.24.1 AS builder
+FROM golang:1.27.1 AS builder
 
 WORKDIR /app
 
 COPY ./src .
 
 RUN go mod download
-RUN go mod tidy
-RUN CGO_ENABLED=0 GOOS=linux go build -C ./cmd/main  -o /app/mock_api_server
+RUN CGO_ENABLED=0 GOOS=linux go build -C ./cmd/main -mod=readonly  -o /app/mock_api_server
 
-RUN ls -la /app
 
 FROM alpine:3.20.3
 
@@ -18,7 +16,7 @@ ARG SERVICE_GROUP=grp_i3d
 RUN apk --no-cache add ca-certificates shadow
 RUN addgroup -S ${SERVICE_GROUP} && adduser -S ${SERVICE_USER} -G ${SERVICE_GROUP}
 
-EXPOSE 8181
+EXPOSE 8080
 WORKDIR /app
 
 COPY --from=builder /app/mock_api_server .

@@ -11,18 +11,18 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - module: plugin/fleetmanager/src
-            go: '1.23.5'
+          - module: '.'
+            go: '1.27.1'
             race: '-race'
           - module: plugin/example/src
-            go: '1.23.5'
-            race: ''
+            go: '1.27.1'
+            race: '-race'
           - module: mock_api_server/src
-            go: '1.24.1'
-            race: ''
+            go: '1.27.1'
+            race: '-race'
           - module: nakama_test_client/src
-            go: '1.24.1'
-            race: ''
+            go: '1.27.1'
+            race: '-race'
     defaults:
       run:
         working-directory: ${{ matrix.module }}
@@ -34,4 +34,38 @@ jobs:
           cache-dependency-path: ${{ matrix.module }}/go.sum
       - run: go test -mod=readonly ${{ matrix.race }} -count=1 ./...
       - run: go vet -mod=readonly ./...
+      - if: matrix.module == 'plugin/example/src'
+        run: go test -mod=readonly -race -tags=i3d_smoke ./...
       - run: git diff --exit-code -- '**/go.mod' '**/go.sum'
+  plugin:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - run: sh scripts/check-plugin.sh
+
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.27.1'
+          cache-dependency-path: nakama_test_client/src/go.sum
+      - run: python3 scripts/check-smoke-cleanup.py
+      - run: sh scripts/smoke.sh
+
+  consumer:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.27.1'
+          cache-dependency-path: go.sum
+      - if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+        env:
+          CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: bash scripts/check-install.sh "$CANDIDATE_SHA"

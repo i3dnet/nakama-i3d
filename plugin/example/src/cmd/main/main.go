@@ -4,34 +4,42 @@ package main
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"github.com/heroiclabs/nakama-common/runtime"
-	"gitlab.com/i3Dnet/dev/game/projects/plugins/nakama/fleetmanager/config"
-	"gitlab.com/i3Dnet/dev/game/projects/plugins/nakama/fleetmanager/fleetmanager"
-
+	"github.com/i3dnet/nakama-i3d"
+	"github.com/i3dnet/nakama-i3d/config"
+	"strings"
 	"time"
 )
 
 var localconfig *config.Config
 
 // InitModule is the entry point for the module. and creates the fleet manager with the given configuration.
+// loadConfig prefers explicit runtime configuration. Nakama always supplies a
+// runtime.env map, even an empty one, so process/file configuration is used only
+// when that map carries no I3D_ setting. Invalid runtime input never falls back
+// to other credentials.
+func loadConfig(ctx context.Context) (*config.Config, *runtime.Error) {
+	value := ctx.Value(runtime.RUNTIME_CTX_ENV)
+	env, isMap := value.(map[string]string)
+	if value != nil && !isMap {
+		return config.NewConfigFromRuntime(ctx)
+	}
+	for key := range env {
+		if strings.HasPrefix(key, "I3D_") {
+			return config.NewConfigFromRuntime(ctx)
+		}
+	}
+	return config.NewConfig()
+}
+
 func InitModule(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runtime.NakamaModule, initializer runtime.Initializer) error {
 	initStart := time.Now()
 
-	//Create the config
 	var runTimeError *runtime.Error
-
-	// getting config from the local.yml inside the runtime environment variables
-	localconfig, runTimeError = config.NewConfigFromRuntime(ctx)
+	localconfig, runTimeError = loadConfig(ctx)
 	if runTimeError != nil {
-
-		// fallback to configuration from .env file
-		// or set as environment variables on the operating system
-		// or as settings.json set in the app directory
-		localconfig, runTimeError = config.NewConfig()
-		if runTimeError != nil {
-			logger.WithField("error", runTimeError).Error("failed to create config")
-			return runTimeError
-		}
+		return runTimeError
 	}
 
 	//Create the fleet manager
@@ -59,6 +67,9 @@ func InitModule(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runti
 		return err
 	}
 
+	if err := registerSmokeChecks(initializer); err != nil {
+		return err
+	}
 	logger.Debug("Module loaded in %dms", time.Since(initStart).Milliseconds())
 	return nil
 }
@@ -67,6 +78,9 @@ func InitModule(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runti
 func MatchmakerMatched(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runtime.NakamaModule, entries []runtime.MatchmakerEntry) (string, error) {
 	logger.Debug("MatchmakerMatched called")
 
+	if len(entries) == 0 {
+		return "", fmt.Errorf("no matchmaker entries")
+	}
 	// Get the passed in properties of the first entry
 	properties := entries[0].GetProperties()
 	logger.Debug("Properties: %v", properties)
@@ -89,6 +103,16 @@ func MatchmakerMatched(ctx context.Context, logger runtime.Logger, db *sql.DB, n
 			return
 		}
 
+		if status != runtime.CreateSuccess || instanceInfo == nil || instanceInfo.ConnectionInfo == nil {
+			logger.Error("allocation has no connection information")
+			return
+		}
+		notificationCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
+		defer cancel()
+		if err := smokeBeforeNotify(notificationCtx, nk, instanceInfo.Id); err != nil {
+			logger.Error("storage-before-callback check: %v", err)
+			return
+		}
 		for _, userId := range userIds {
 			// Use the Nakama Instance to Notify each user that the game session has been created and supply IpAddress
 			sessionId, found := getSessionForUserId(sessionInfo, userId)
@@ -100,7 +124,7 @@ func MatchmakerMatched(ctx context.Context, logger runtime.Logger, db *sql.DB, n
 					"SessionId": sessionId,
 				}
 
-				err = nk.NotificationsSend(ctx, []*runtime.NotificationSend{
+				err = nk.NotificationsSend(notificationCtx, []*runtime.NotificationSend{
 					{
 						Code:    9000,
 						UserID:  userId,
@@ -127,10 +151,11 @@ func MatchmakerMatched(ctx context.Context, logger runtime.Logger, db *sql.DB, n
 
 	logger.Debug("Metadata: %v", metadata)
 
-	maxPlayers := 2
+	// Create rejects a capacity smaller than the matched players.
+	maxPlayers := len(userIds)
 
 	// Create the game session
-	err := fm.Create(ctx, maxPlayers, userIds, nil, metadata, callback)
+	_, err := fm.Create(ctx, maxPlayers, userIds, nil, metadata, callback)
 	if err != nil {
 		logger.Error("Error creating game session: %v", err)
 		return "", err

@@ -1,0 +1,27 @@
+module github.com/i3dnet/nakama-i3d
+
+go 1.27.1
+
+require (
+	github.com/bxcodec/faker/v4 v4.0.0-beta.3
+	github.com/google/uuid v1.6.0
+	github.com/heroiclabs/nakama-common v1.48.0
+	github.com/joho/godotenv v1.5.1
+	github.com/stretchr/testify v1.10.0
+	go.opentelemetry.io/otel v1.35.0
+	go.opentelemetry.io/otel/metric v1.35.0
+	go.uber.org/mock v0.5.2
+	google.golang.org/protobuf v1.36.12
+	gopkg.in/validator.v2 v2.0.1
+)
+
+require (
+	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/go-logr/logr v1.4.2 // indirect
+	github.com/go-logr/stdr v1.2.2 // indirect
+	github.com/pmezard/go-difflib v1.0.0 // indirect
+	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
+	go.opentelemetry.io/otel/trace v1.35.0 // indirect
+	golang.org/x/text v0.3.7 // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
+)
