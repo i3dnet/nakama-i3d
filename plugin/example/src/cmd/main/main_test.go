@@ -25,11 +25,13 @@ func (testPresence) GetUserId() string { return "player" }
 
 type testFleet struct {
 	runtime.FleetManager
-	callback runtime.FmCreateCallbackFn
+	callback   runtime.FmCreateCallbackFn
+	maxPlayers int
+	users      int
 }
 
-func (f *testFleet) Create(_ context.Context, _ int, _ []string, _ []runtime.FleetUserLatencies, _ map[string]any, cb runtime.FmCreateCallbackFn) (map[string]string, error) {
-	f.callback = cb
+func (f *testFleet) Create(_ context.Context, maxPlayers int, userIds []string, _ []runtime.FleetUserLatencies, _ map[string]any, cb runtime.FmCreateCallbackFn) (map[string]string, error) {
+	f.callback, f.maxPlayers, f.users = cb, maxPlayers, len(userIds)
 	return nil, nil
 }
 
@@ -97,5 +99,30 @@ func TestMalformedRuntimeEnvironmentDoesNotFallBack(t *testing.T) {
 	err := InitModule(ctx, testLogger{}, nil, nil, nil)
 	if runtimeErr, ok := err.(*runtime.Error); !ok || runtimeErr.Code != 3 {
 		t.Fatalf("expected invalid runtime environment, got %v", err)
+	}
+}
+
+func TestRuntimeEnvironmentWithoutI3dSettingsUsesProcessConfiguration(t *testing.T) {
+	t.Setenv("PROJECT_ROOT", t.TempDir())
+	t.Setenv("I3D_APPLICATION_ID", "process-app")
+	t.Setenv("I3D_ACCESS_TOKEN", "test-only")
+	// Nakama always supplies runtime.env, even when no runtime.env entries exist.
+	for _, env := range []map[string]string{nil, {}, {"UNRELATED": "value"}} {
+		ctx := context.WithValue(context.Background(), runtime.RUNTIME_CTX_ENV, env)
+		cfg, err := loadConfig(ctx)
+		if err != nil || cfg.OneApi.ApplicationId != "process-app" {
+			t.Fatalf("runtime env %v: expected process configuration, got %+v, %v", env, cfg, err)
+		}
+	}
+}
+
+func TestMatchmakerCapacityCoversEveryMatchedPlayer(t *testing.T) {
+	nk := &testNakama{fleet: &testFleet{}}
+	entries := []runtime.MatchmakerEntry{testEntry{}, testEntry{}, testEntry{}}
+	if _, err := MatchmakerMatched(context.Background(), testLogger{}, nil, nk, entries); err != nil {
+		t.Fatal(err)
+	}
+	if nk.fleet.users != 3 || nk.fleet.maxPlayers < nk.fleet.users {
+		t.Fatalf("capacity %d cannot hold %d matched players", nk.fleet.maxPlayers, nk.fleet.users)
 	}
 }

@@ -8,24 +8,36 @@ import (
 	"github.com/heroiclabs/nakama-common/runtime"
 	"github.com/i3dnet/nakama-i3d"
 	"github.com/i3dnet/nakama-i3d/config"
-
+	"strings"
 	"time"
 )
 
 var localconfig *config.Config
 
 // InitModule is the entry point for the module. and creates the fleet manager with the given configuration.
+// loadConfig prefers explicit runtime configuration. Nakama always supplies a
+// runtime.env map, even an empty one, so process/file configuration is used only
+// when that map carries no I3D_ setting. Invalid runtime input never falls back
+// to other credentials.
+func loadConfig(ctx context.Context) (*config.Config, *runtime.Error) {
+	value := ctx.Value(runtime.RUNTIME_CTX_ENV)
+	env, isMap := value.(map[string]string)
+	if value != nil && !isMap {
+		return config.NewConfigFromRuntime(ctx)
+	}
+	for key := range env {
+		if strings.HasPrefix(key, "I3D_") {
+			return config.NewConfigFromRuntime(ctx)
+		}
+	}
+	return config.NewConfig()
+}
+
 func InitModule(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runtime.NakamaModule, initializer runtime.Initializer) error {
 	initStart := time.Now()
 
-	// Prefer explicit runtime configuration. Only use process/file configuration
-	// when no runtime environment was supplied at all.
 	var runTimeError *runtime.Error
-	if ctx.Value(runtime.RUNTIME_CTX_ENV) != nil {
-		localconfig, runTimeError = config.NewConfigFromRuntime(ctx)
-	} else {
-		localconfig, runTimeError = config.NewConfig()
-	}
+	localconfig, runTimeError = loadConfig(ctx)
 	if runTimeError != nil {
 		return runTimeError
 	}
@@ -139,7 +151,8 @@ func MatchmakerMatched(ctx context.Context, logger runtime.Logger, db *sql.DB, n
 
 	logger.Debug("Metadata: %v", metadata)
 
-	maxPlayers := 2
+	// Create rejects a capacity smaller than the matched players.
+	maxPlayers := len(userIds)
 
 	// Create the game session
 	_, err := fm.Create(ctx, maxPlayers, userIds, nil, metadata, callback)
