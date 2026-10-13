@@ -79,7 +79,7 @@ A full review of the runtime candidate found defects that are fixed in c926f8b, 
 - The adapter exposes Shutdown for modules that register their own shutdown hook.
 - The example reads setting.json/.env/process configuration when runtime.env has no I3D_ setting, and its capacity covers every matched player.
 
-All four modules pass race tests and vet; the plugin builds and loads; the real Nakama/PostgreSQL lifecycle smoke passes; a fresh public consumer resolves v0.0.0-20261013082344-c926f8b38fd9; and the guide compiles against it. Deferred for follow-up rather than this release: absence-based cleanup that joins on a crashed server can postpone, player-count reports that replace pending reservations, metadata types such as time.Time rejected by Create, and timeouts reported as CreateError rather than CreateTimeout.
+All four modules pass race tests and vet; the plugin builds and loads; the real Nakama/PostgreSQL lifecycle smoke passes; a fresh public consumer resolves v0.0.0-20261013082344-c926f8b38fd9; and the guide compiles against it. Deferred for follow-up rather than this release: absence-based cleanup that joins on a crashed server can postpone, player-count reports that replace pending reservations, metadata types such as time.Time rejected by Create, timeouts reported as CreateError rather than CreateTimeout, and an optional maximum allocation age that restarts servers stuck in ALLOCATED ([#44](https://github.com/i3dnet/nakama-i3d/issues/44)).
 
 ## Remaining release gates
 
