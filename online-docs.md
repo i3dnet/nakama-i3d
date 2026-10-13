@@ -526,6 +526,9 @@ Use `player_count`, supply the application-instance ID, and authenticate as a se
 **Players are stuck waiting after allocation.**
 Check the allocation result, storage errors, and notification-delivery errors. The client must handle timeout, failure, lost connectivity and missed nonpersistent notifications. In the reviewed open-source Nakama runtime, pending callbacks are local to the process and do not survive restart.
 
+**How should the game server handle a crash?**
+Let the process exit. Arcus has no error status. The i3D orchestrator starts a new instance, and if the exit code is not 0 or 134, a crash report is sent to the i3D backend automatically. Players connected to the crashed server need your client's reconnection or rematch flow.
+
 **Can a health-check RPC confirm that allocation works?**
 A simple handler health check confirms liveness. Use an actual allocation smoke test and allocation outcome/duration metrics to validate the provider integration.
 
