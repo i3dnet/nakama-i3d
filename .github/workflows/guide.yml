@@ -1,0 +1,25 @@
+name: Partner guide
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  guide:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.27.1'
+          cache: false
+      - name: Compile the actual guide examples
+        run: |
+          if [ -f go.mod ]; then
+            python3 scripts/check-docs.py
+          else
+            # Reviewed runtime commit, used only until the runtime PR reaches main.
+            # The guide itself installs v0.1.0, which is tagged from that merge.
+            python3 scripts/check-docs.py 6c4711f0362a71c1d3e7fca74084774cc121d863
+          fi
