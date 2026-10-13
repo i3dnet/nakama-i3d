@@ -211,6 +211,35 @@ func TestListFailsWholePageOnInvalidInstance(t *testing.T) {
 	require.Nil(t, got)
 }
 
+func TestListSkipsUnusableInstancesThatAreNotAllocated(t *testing.T) {
+	noPort := validProviderInstance()
+	noPort.Id, noPort.Status, noPort.Properties = "starting", 3, nil
+	privateOnly := validProviderInstance()
+	privateOnly.Id, privateOnly.Status = "online-private", 4
+	privateOnly.IpAddress = []openapi.ApplicationInstanceIP{{IpAddress: "10.0.0.5", Private: 0, IpVersion: 4}}
+	client := contractClient(t, func(w http.ResponseWriter, r *http.Request) {
+		writeInstances(w, []openapi.ApplicationInstance{noPort, validProviderInstance(), privateOnly})
+	})
+	got, err := client.ListApplicationInstances(context.Background(), "", 10, "")
+	require.NoError(t, err)
+	require.Len(t, got.Instances, 1)
+	require.Equal(t, "instance-1", got.Instances[0].Id)
+}
+
+func TestListOmitsPageTokenOnFirstPage(t *testing.T) {
+	var present []bool
+	client := contractClient(t, func(w http.ResponseWriter, r *http.Request) {
+		_, ok := r.Header[http.CanonicalHeaderKey("PAGE-TOKEN")]
+		present = append(present, ok)
+		writeInstances(w, []openapi.ApplicationInstance{validProviderInstance()})
+	})
+	_, err := client.ListApplicationInstances(context.Background(), "applicationId=123", 7, "")
+	require.NoError(t, err)
+	_, err = client.ListApplicationInstances(context.Background(), "applicationId=123", 7, "next")
+	require.NoError(t, err)
+	require.Equal(t, []bool{false, true}, present)
+}
+
 func TestGetRejectsMismatchedInstanceIdentity(t *testing.T) {
 	client := contractClient(t, func(w http.ResponseWriter, r *http.Request) {
 		instance := validProviderInstance()

@@ -59,7 +59,11 @@ func (o *OneApiClient) ListApplicationInstances(ctx context.Context, filters str
 	}
 
 	request = request.RANGEDDATA(createRangedData(limit))
-	request = request.PAGETOKEN(previousCursor)
+	// ONE documents that a request carrying PAGE-TOKEN ignores filters or is
+	// rejected, so the header is sent only to continue an existing listing.
+	if previousCursor != "" {
+		request = request.PAGETOKEN(previousCursor)
+	}
 
 	applicationInstances, response, err := executeRead(ctx, o, request.Execute)
 	if err != nil {
@@ -70,6 +74,14 @@ func (o *OneApiClient) ListApplicationInstances(ctx context.Context, filters str
 	for _, instance := range applicationInstances {
 		ins, err := o.mapToInstanceInfo(instance)
 		if err != nil {
+			// Callers act only on ALLOCATED entries and treat every other status
+			// like an absent instance, so an unusable one cannot affect them.
+			// An unusable ALLOCATED entry must still fail the page: skipping it
+			// would let reconciliation delete a live session.
+			if getStatus(instance.Status) != ApplicationInstanceStatus[5] {
+				o.logger.WithField("instance_id", instance.Id).Warn("skipping unusable non-allocated instance: %v", err)
+				continue
+			}
 			o.logger.WithField("error", err.Error()).Error("failed to map instance")
 			return nil, fmt.Errorf("invalid instance in provider page: %w", err)
 		}
