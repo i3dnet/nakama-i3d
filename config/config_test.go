@@ -146,6 +146,20 @@ func TestDotEnvAndWorkingDirectoryResolution(t *testing.T) {
 	require.Equal(t, "https://process.example", cfg.BaseUrl)
 }
 
+// The ONE API reaches remote host agents during allocation and restart, which
+// can exceed 30s across regions.
+func TestAllocationFinalizeTimeoutDefaultsToNinetySeconds(t *testing.T) {
+	isolateProcessConfig(t, nil)
+	t.Setenv("I3D_APPLICATION_ID", "123")
+	t.Setenv("I3D_ACCESS_TOKEN", "test-only")
+	process, err := NewConfig()
+	require.Nil(t, err)
+	require.Equal(t, 90*time.Second, process.AllocationFinalizeTimeout)
+	fromRuntime, err := runtimeConfig(map[string]string{"I3D_APPLICATION_ID": "123", "I3D_ACCESS_TOKEN": "test-only"})
+	require.Nil(t, err)
+	require.Equal(t, 90*time.Second, fromRuntime.AllocationFinalizeTimeout)
+}
+
 func TestRuntimeRejectsInsufficientReconciliationClockWindow(t *testing.T) {
 	for _, value := range []string{"0s", "500ms", "invalid"} {
 		env := staticEnv()

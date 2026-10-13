@@ -25,7 +25,7 @@ services:
       timeout: 3s
       retries: 30
   nakama:
-    stop_grace_period: 60s
+    stop_grace_period: 120s
     build:
       context: ..
       dockerfile: plugin/Dockerfile

@@ -65,7 +65,7 @@ func defaultConfig() *Config {
 		App:                       App{Name: "Nakama one plugin", Version: "1.0.0"},
 		OneApi:                    OneApi{BaseUrl: "https://api.i3d.net"},
 		Retry:                     Retry{Attempts: 3, Delay: 1500 * time.Millisecond, MaxDelay: 7500 * time.Millisecond},
-		AllocationFinalizeTimeout: 30 * time.Second,
+		AllocationFinalizeTimeout: 90 * time.Second,
 		AllocationTimeout:         120 * time.Second, ProviderTimeout: 90 * time.Second,
 		ReconcileInterval: time.Minute, ReconcileTimeout: 30 * time.Second, ReconcileGracePeriod: 2 * time.Minute, ReconcileClockSkew: 5 * time.Second,
 	}

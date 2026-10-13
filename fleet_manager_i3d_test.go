@@ -725,6 +725,13 @@ func TestFleetManager(t *testing.T) {
 	suite.Run(t, new(FleetManagerSuite))
 }
 
+func TestProgrammaticConfigWithoutFinalizeTimeoutUsesNinetySeconds(t *testing.T) {
+	fm := &I3dFleetManager{cfg: &config.Config{}}
+	if got := fm.allocationFinalizeTimeout(); got != 90*time.Second {
+		t.Fatalf("finalize timeout = %v, want 90s", got)
+	}
+}
+
 func expectMutation(cache *tests.MockFleetManagerStorage, id string, create bool, instance *runtime.InstanceInfo, storageErr error) {
 	cache.EXPECT().MutateGameSession(gomock.Any(), id, create, gomock.Any()).DoAndReturn(func(_ context.Context, _ string, _ bool, fn func(*runtime.InstanceInfo, map[string]bool) error) (*runtime.InstanceInfo, error) {
 		if instance == nil {

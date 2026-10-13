@@ -80,7 +80,7 @@ func (fm *I3dFleetManager) allocationFinalizeTimeout() time.Duration {
 	if fm.cfg.AllocationFinalizeTimeout > 0 {
 		return fm.cfg.AllocationFinalizeTimeout
 	}
-	return 30 * time.Second
+	return 90 * time.Second
 }
 
 // Cleanup uses a fresh bound even after allocation/shutdown cancellation. Never
