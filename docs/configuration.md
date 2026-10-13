@@ -1,6 +1,6 @@
 # Configuration
 
-NewConfigFromRuntime reads only Nakama's runtime.env map. NewConfig reads defaults, optional setting.json, optional .env and then process environment overrides, in that order. Files resolve from PROJECT_ROOT or the current working directory. Invalid input returns an error; it does not trigger a credential fallback. The example chooses runtime configuration whenever Nakama supplies that context value.
+NewConfigFromRuntime reads only Nakama's runtime.env map. NewConfig reads defaults, optional setting.json, optional .env and then process environment overrides, in that order. Files resolve from PROJECT_ROOT or the current working directory. Invalid input returns an error; it does not trigger a credential fallback. Nakama always supplies a runtime.env map, possibly empty. The example uses NewConfigFromRuntime when that map contains any I3D_ setting, and NewConfig otherwise.
 
 I3D_BASE_URL is canonical; the documented I3D_API_URL is accepted only when BASE_URL is absent. The default is https://api.i3d.net. I3D_APPLICATION_ID is required. I3D_FLEET_ID optionally scopes allocations/listing/reconciliation to one fleet.
 
@@ -43,6 +43,6 @@ Successful allocation gets a fresh I3D_ALLOCATION_FINALIZE_TIMEOUT budget to per
 
 A programmatic Config with AllocationTimeout zero retains the 120s fallback and logs a warning once per manager naming I3D_ALLOCATION_TIMEOUT. The config loaders set the documented defaults and reject explicit nonpositive durations. Each phase remains bounded by manager shutdown, while best-effort cleanup may run within the shutdown grace period. A dependency that ignores cancellation can outlive its callback; its eventual result is still reclaimed while the process is alive.
 
-Set Nakama shutdown_grace_sec above I3D_ALLOCATION_FINALIZE_TIMEOUT with a cancellation margin; the examples use 45 seconds for the default 30-second cleanup budget. Container or service stop deadlines must exceed Nakama's grace (repository Compose files use 60 seconds). A dependency that ignores cancellation can still outlive shutdown.
+Set Nakama shutdown_grace_sec above I3D_ALLOCATION_FINALIZE_TIMEOUT with a cancellation margin; the examples use 45 seconds for the default 30-second cleanup budget. Container or service stop deadlines must exceed Nakama's grace (repository Compose files use 60 seconds). A dependency that ignores cancellation can still outlive shutdown. Nakama keeps a single shutdown hook; NewI3dFleetManager registers it, so a module that registers its own hook afterwards must call the manager's Shutdown(ctx) from that hook.
 
 With I3D_RETRY_DELAY=0s and a positive I3D_RETRY_MAX_DELAY, the first retry is immediate; subsequent delays start at the smaller of 1ms and the maximum, then double up to that maximum. Set both delays to 0s to disable waiting between the bounded read attempts.

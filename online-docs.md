@@ -4,7 +4,7 @@
 >
 > This is a replacement draft for the [current i3D integration guide](https://heroiclabs.com/docs/nakama/guides/concepts/i3d-integration/). The implementation candidate targets Nakama 3.41.0 and has passed local unit/race checks, real plugin loading and the full lifecycle smoke test. It is in review; no release tag or production deployment has been published.
 >
-> The legacy main revision, `9a20297`, uses Nakama 3.26.0 / nakama-common 1.36.0 and a nested GitLab module path. This guide uses the implementation candidate commit `352b0a2233ffe896e97b27b95c1678b41552c2e3`. Replace that pin with the approved release version after merging and completing the local release checks. The final section lists the remaining publication gates.
+> The legacy main revision, `9a20297`, uses Nakama 3.26.0 / nakama-common 1.36.0 and a nested GitLab module path. This guide uses the implementation candidate commit `c926f8b38fd9e7bdd04ed4b95e1f0fb6c0ea62c9`. Replace that pin with the approved release version after merging and completing the local release checks. The final section lists the remaining publication gates.
 
 Use Nakama to authenticate players and find matches, then allocate a dedicated game server through i3D.net. Players receive the server's connection details through a Nakama notification and connect directly using your game's networking transport.
 
@@ -29,7 +29,7 @@ The candidate has been tested with this exact combination:
 | nakama-common | 1.48.0 |
 | Go | 1.27.1 |
 | Shared protobuf dependency | 1.36.12 |
-| i3D integration | Candidate 352b0a2; release tag pending |
+| i3D integration | Candidate c926f8b; release tag pending |
 
 The dependency versions come from [Nakama 3.41.0's go.mod](https://github.com/heroiclabs/nakama/blob/v3.41.0/go.mod). The matching plugin loads in Nakama on Linux ARM64 locally; CI also builds and loads it on Linux AMD64. This does not establish compatibility with other runtime versions.
 
@@ -86,7 +86,7 @@ To evaluate the candidate, run these commands in your Go runtime project:
 # Only needed for a new project:
 go mod init example.com/nakama-i3d-game
 
-go get github.com/i3dnet/nakama-i3d@352b0a2233ffe896e97b27b95c1678b41552c2e3
+go get github.com/i3dnet/nakama-i3d@c926f8b38fd9e7bdd04ed4b95e1f0fb6c0ea62c9
 go get github.com/heroiclabs/nakama-common@v1.48.0 google.golang.org/protobuf@v1.36.12
 ~~~
 
@@ -171,6 +171,8 @@ Only reads retry transient network failures and HTTP 408, 429, 500, 502, 503 or 
 Arcus coordinates server allocation and metadata. It does not replace player authentication.
 
 Keep Nakama's shutdown grace longer than I3D_ALLOCATION_FINALIZE_TIMEOUT, with time for cancellation to propagate. These examples allow 45 seconds for the default 30-second cleanup budget. Configure the container or service manager to wait longer still (the repository Compose files allow 60 seconds). A dependency that ignores cancellation can still outlive the grace period.
+
+Nakama keeps a single shutdown hook, and the last registration wins. `NewI3dFleetManager` registers one that drains the adapter. If your module registers its own shutdown hook afterwards, call `fm.(*fleetmanager.I3dFleetManager).Shutdown(ctx)` from it; otherwise the adapter no longer drains on shutdown.
 
 ## Register the fleet manager
 
@@ -288,7 +290,6 @@ func MatchmakerMatched(
 			content = map[string]any{
 				"InstanceId": instance.Id,
 				"IpAddress":  connection.IpAddress,
-				"DnsName":    connection.DnsName,
 				"Port":       connection.Port,
 			}
 		}
@@ -341,11 +342,11 @@ func MatchmakerMatched(
 
 The first return from `Create` is provider-specific request metadata; this example does not need it. A successful return means the asynchronous request was accepted. The callback supplies its final result.
 
-Accepted allocation work survives normal hook-context cancellation. Already-canceled calls are rejected before acceptance. Provider allocation and storage persistence have separate deadlines and observe manager shutdown. Storage is committed before success, and a published result wins over simultaneous deadline expiry. A failed or late result with a confirmed allocation ID triggers one best-effort restart with a fresh bounded context. Cleanup failures are logged; ambiguous responses without an allocated instance ID require operator reconciliation. A timed-out dependency that ignores cancellation is reclaimed when it eventually returns, while the process remains alive. Cleanup never changes an already delivered callback outcome or blindly deletes a newer cached session. A programmatic Config with a zero AllocationTimeout logs the 120s fallback once per manager. Callbacks are local to their owning process and do not survive a crash or route between nodes. The separate context in the example handles notification delivery only.
+Accepted allocation work survives normal hook-context cancellation. Already-canceled calls are rejected before acceptance. Provider allocation and storage persistence have separate deadlines and observe manager shutdown. Storage is committed before success, and a published result wins over simultaneous deadline expiry. A failed or late result with a confirmed allocation ID triggers one best-effort restart with a fresh bounded context. The provider request itself may continue for up to I3D_ALLOCATION_FINALIZE_TIMEOUT after the allocation deadline, so an allocation that succeeds just after the deadline is still observed and released. Cleanup failures are logged; ambiguous responses without an allocated instance ID require operator reconciliation. A timed-out dependency that ignores cancellation is reclaimed when it eventually returns, while the process remains alive. Cleanup never changes an already delivered callback outcome or blindly deletes a newer cached session. A programmatic Config with a zero AllocationTimeout logs the 120s fallback once per manager. Callbacks are local to their owning process and do not survive a crash or route between nodes. The separate context in the example handles notification delivery only.
 
 On the client, register your notification handler before submitting a matchmaking ticket:
 
-- `9000`: read `InstanceId`, `IpAddress` or `DnsName`, and `Port`, then connect through your game transport.
+- `9000`: read `InstanceId`, `IpAddress` and `Port`, then connect through your game transport.
 - `9001`: allocation timed out; show that outcome and let the player retry matchmaking.
 - `9002`: allocation failed; show that outcome and offer a controlled retry.
 
@@ -372,7 +373,7 @@ Use actual i3D IDs, not an AWS-style region name in an ID field. The builder als
 
 Supported filter keys include deployment environment, fleet, host, application build, data-center location, and region. Use the corresponding exported constants, such as `ApplicationBuildId`, `DcLocationId`, or `RegionName`.
 
-Metadata must be JSON-encodable. Accepted metadata retains exact Go scalar types and independent nested maps/slices for asynchronous allocation and callbacks. Structs containing mutable unexported state are rejected before allocation because the adapter cannot safely copy that state.
+Metadata must be JSON-encodable. Accepted metadata retains exact Go scalar types and independent nested maps/slices for asynchronous allocation and callbacks. Structs containing mutable unexported state are rejected before allocation because the adapter cannot safely copy that state. The game server receives every metadata value as a string: strings are sent unchanged, and other values are sent as JSON text, for example `1500000`, `true` or `{"rounds":3}`.
 
 Allocation filters are separate from the metadata delivered to the game server. The adapter extracts its routing fields before sending game metadata. Reserve `i3dFilters`, `overwriteApplicationId` and the entire `i3d_` namespace for adapter use. `FilterBuilder.Query` returns a raw expression; do not URL-encode it yourself.
 

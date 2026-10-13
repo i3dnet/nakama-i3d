@@ -1,6 +1,6 @@
 # Release candidate checklist — updated 29 September 2026
 
-Implementation candidate: 352b0a2233ffe896e97b27b95c1678b41552c2e3, publicly resolved as v0.0.0-20260929094502-352b0a2233ff. The initial main review used f26ac9d83ebb1a70f492db70b69eacf842403cb6. Upstream main is now 9a20297 after #8 was merged; this work has not merged PRs. The deployed artifact is unknown.
+Implementation candidate: c926f8b38fd9e7bdd04ed4b95e1f0fb6c0ea62c9, publicly resolved as v0.0.0-20261013082344-c926f8b38fd9. The initial main review used f26ac9d83ebb1a70f492db70b69eacf842403cb6. Upstream main is now 9a20297 after #8 was merged; this work has not merged PRs. The deployed artifact is unknown.
 
 ## Review layout
 
@@ -24,7 +24,7 @@ The [superseded stack map](reviews/2026-09-24-superseded-pr-stack.md) retains th
 - [x] Actual storage-index sorting, tied player counts with descending creation times, and continuation pages. Sort fields use value.player_count and value.create_time.
 - [x] Provider multi-page reconciliation, missed termination without restart, invalid readiness, exactly one restart for a confirmed failed allocation, and bounded timeout without allocation retry.
 - [x] Unit regression coverage for completed-result precedence, fresh persistence and cleanup contexts, cleanup error reporting, callback lifetime/one terminal callback, failed provider pages, Create/Join/reallocation races, storage pagination boundaries and bounded clock skew, OAuth refresh and cancellation.
-- [x] Fresh public Go module cache, no clone/replace/private GitLab credentials: scripts/check-install.sh at 352b0a2 resolves the pseudo-version above and compiles the real example.
+- [x] Fresh public Go module cache, no clone/replace/private GitLab credentials: scripts/check-install.sh at c926f8b resolves the pseudo-version above and compiles the real example.
 - [x] Partner guide Go files and filter block compiled/tested in an isolated consumer through scripts/check-docs.py. CI recompiles the actual Markdown blocks.
 - [x] Documented unwrapped JSON lifecycle payloads executed against Nakama's HTTP-key endpoint.
 - [x] Ordinary plugin builds exclude the i3d_smoke test RPCs.
@@ -67,6 +67,20 @@ There is no staging environment. Validation uses local unit/race tests, HTTP cap
 
 The September 29 Balanced follow-up also found a generated telemetry route with an unsubstituted path identifier. The same source-schema omission affected 14 generated operations. Their required parameters and escaped URL substitutions are now covered by captured HTTP requests; all 14 regressions failed before the correction and pass afterward. The root race suite and vet pass. The four documentation follow-ups (workflow pin, compatibility count statement, partner candidate and guide table) are corrected together.
 
+## October 13 review fixes
+
+A full review of the runtime candidate found defects that are fixed in c926f8b, each with a regression test that failed before its fix:
+
+- Session storage trusts only server-written records. Players could write objects into the session collection, which List returned with attacker-chosen addresses and which halted reconciliation.
+- Unchanged provider refreshes no longer rewrite stored sessions. The no-op check compared Go JSON with PostgreSQL's normalized JSONB and never matched.
+- A late provider allocation success is observed and released instead of leaking an ALLOCATED instance.
+- An unusable non-ALLOCATED provider entry no longer fails the whole page; the first page no longer sends an empty PAGE-TOKEN; fleet-scoped allocation filters no longer use parentheses.
+- Non-string metadata reaches the game server as JSON text instead of Go formatting such as 1.5e+06.
+- The adapter exposes Shutdown for modules that register their own shutdown hook.
+- The example reads setting.json/.env/process configuration when runtime.env has no I3D_ setting, and its capacity covers every matched player.
+
+All four modules pass race tests and vet; the plugin builds and loads; the real Nakama/PostgreSQL lifecycle smoke passes; a fresh public consumer resolves v0.0.0-20261013082344-c926f8b38fd9; and the guide compiles against it. Deferred for follow-up rather than this release: absence-based cleanup that joins on a crashed server can postpone, player-count reports that replace pending reservations, metadata types such as time.Time rejected by Create, and timeouts reported as CreateError rather than CreateTimeout.
+
 ## Remaining release gates
 
 - [ ] Have the maintainer disposition the two [lifecycle review threads](reviews/2026-09-28-lifecycle-generation-blockers.md) against the documented single-owner release sequence. They remain open; this change does not claim stale caller protection across independent release/reallocation.
@@ -75,10 +89,11 @@ The September 29 Balanced follow-up also found a generated telemetry route with 
 - [ ] Choose the first public root-module version. The repository has no tags; v0.1.0 is proposed, not created.
 - [ ] Identify the live commit/image digest, Nakama version, runtime/process configuration source, application/fleet and headless-server authentication.
 - [ ] Confirm whether a security backport is needed for an existing 3.26 deployment. A 3.41 plugin cannot be substituted into the old runtime.
-- [x] Run the local test/race/vet, plugin build/load, guide compilation and allocation/update/release/reuse smoke checks for candidate 352b0a2. Repeat if the runtime changes.
+- [x] Run the local test/race/vet, plugin build/load, guide compilation and allocation/update/release/reuse smoke checks for candidate c926f8b. Repeat if the runtime changes.
 - [ ] Review timeout and reconciliation settings for the intended rollout. There are no staging measurements; two successful but incomplete provider scans can still falsely imply absence. Disable absence-based reconciliation if its consistency assumptions are not acceptable.
 - [ ] Retain the previous runtime/plugin image and configuration, take the normal database backup, document the rollout owner and rollback steps.
 - [ ] Review stored-session compatibility before rolling back: old records remain readable, but older code ignores new admission/version semantics and is not safe for concurrent mixed-version writers.
+- [ ] Drain active game sessions before upgrading from the legacy plugin. Sessions stored by the legacy version lack i3d_max_players, so update_instance_info returns an internal error for them, and their metadata updates do not reach ONE, until they end.
 - [ ] Publish an approved tag, rerun scripts/check-install.sh against it, replace the candidate pin in online-docs.md/readme.md and complete the normal deployment approval.
 - [ ] User sends the final partner draft. No external partner message has been sent.
 
