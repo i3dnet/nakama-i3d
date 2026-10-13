@@ -86,7 +86,7 @@ All four modules pass race tests and vet; the plugin builds and loads; the real 
 - [ ] Have the maintainer disposition the two [lifecycle review threads](reviews/2026-09-28-lifecycle-generation-blockers.md) against the documented single-owner release sequence. They remain open; this change does not claim stale caller protection across independent release/reallocation.
 
 - [ ] Complete human review and merge both replacement PRs. No PR has been merged by this work.
-- [ ] Choose the first public root-module version. The repository has no tags; v0.1.0 is proposed, not created.
+- [ ] Tag v0.1.0 (chosen on 13 October) on the main commit that merges the runtime PR, before merging the documentation PR. Confirm that its tree matches reviewed candidate c926f8b.
 - [ ] Identify the live commit/image digest, Nakama version, runtime/process configuration source, application/fleet and headless-server authentication.
 - [ ] Confirm whether a security backport is needed for an existing 3.26 deployment. A 3.41 plugin cannot be substituted into the old runtime.
 - [x] Run the local test/race/vet, plugin build/load, guide compilation and allocation/update/release/reuse smoke checks for candidate c926f8b. Repeat if the runtime changes.
@@ -94,7 +94,7 @@ All four modules pass race tests and vet; the plugin builds and loads; the real 
 - [ ] Retain the previous runtime/plugin image and configuration, take the normal database backup, document the rollout owner and rollback steps.
 - [ ] Review stored-session compatibility before rolling back: old records remain readable, but older code ignores new admission/version semantics and is not safe for concurrent mixed-version writers.
 - [ ] Drain active game sessions before upgrading from the legacy plugin. Sessions stored by the legacy version lack i3d_max_players, so update_instance_info returns an internal error for them, and their metadata updates do not reach ONE, until they end.
-- [ ] Publish an approved tag, rerun scripts/check-install.sh against it, replace the candidate pin in online-docs.md/readme.md and complete the normal deployment approval.
+- [ ] After tagging, rerun scripts/check-install.sh v0.1.0 and complete the normal deployment approval. online-docs.md and readme.md already install v0.1.0.
 - [ ] User sends the final partner draft. No external partner message has been sent.
 
 Live deployment identity and rollout approval remain owner decisions. Local verification is the available release evidence; it does not establish live provider timing or end-to-end production safety.

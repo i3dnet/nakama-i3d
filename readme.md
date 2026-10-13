@@ -2,15 +2,15 @@
 
 Allocate existing online i3D game servers from Nakama matchmaking, deliver connection notifications, and maintain local session state. i3D manages hosts, deployment and available fleet capacity; Arcus carries allocation metadata to the headless server. This adapter implements Nakama's FleetManager interface.
 
-This candidate is under review. Main at 9a20297 is the legacy Nakama 3.26 integration; the two review PRs target the exact combination below. No new tag or production release has been published.
+Release v0.1.0 is the first release of the public root module and targets the exact combination below. Main at 9a20297 and earlier is the legacy Nakama 3.26 integration. No production deployment has been published.
 
-| Component | Tested candidate |
+| Component | Tested combination |
 | --- | --- |
 | Nakama / pluginbuilder | 3.41.0 |
 | nakama-common | 1.48.0 |
 | Go | 1.27.1 |
 | Shared protobuf | 1.36.12 |
-| Implementation commit | c926f8b38fd9e7bdd04ed4b95e1f0fb6c0ea62c9 |
+| Release | v0.1.0 |
 
 The Dockerfile pins the matching image digests. Other runtime/toolchain combinations need their own build/load test.
 
@@ -18,10 +18,10 @@ The Dockerfile pins the matching image digests. Other runtime/toolchain combinat
 
 ~~~sh
 go mod init example.com/nakama-game
-go get github.com/i3dnet/nakama-i3d@c926f8b38fd9e7bdd04ed4b95e1f0fb6c0ea62c9
+go get github.com/i3dnet/nakama-i3d@v0.1.0
 ~~~
 
-Import github.com/i3dnet/nakama-i3d (package fleetmanager) and github.com/i3dnet/nakama-i3d/config. External installation needs no clone or local replace. Pin the approved tag after release; @latest is not the candidate path while main retains the old layout.
+Import github.com/i3dnet/nakama-i3d (package fleetmanager) and github.com/i3dnet/nakama-i3d/config. External installation needs no clone or local replace. Pin a release tag such as v0.1.0.
 
 Follow the complete [partner guide draft](online-docs.md) for compiling InitModule/matchmaking examples, Arcus responsibilities, filters, notifications and headless-server lifecycle calls. The [example source](plugin/example/src/cmd/main/main.go) is also built and loaded by CI.
 

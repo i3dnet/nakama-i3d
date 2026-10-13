@@ -19,6 +19,7 @@ jobs:
           if [ -f go.mod ]; then
             python3 scripts/check-docs.py
           else
-            # Keep this pin aligned with online-docs.md until the runtime PR reaches main.
+            # Reviewed runtime commit, used only until the runtime PR reaches main.
+            # The guide itself installs v0.1.0, which is tagged from that merge.
             python3 scripts/check-docs.py c926f8b38fd9e7bdd04ed4b95e1f0fb6c0ea62c9
           fi

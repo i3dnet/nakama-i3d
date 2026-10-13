@@ -2,9 +2,9 @@
 
 > **Draft for Heroic Labs review — 22 September 2026**
 >
-> This is a replacement draft for the [current i3D integration guide](https://heroiclabs.com/docs/nakama/guides/concepts/i3d-integration/). The implementation candidate targets Nakama 3.41.0 and has passed local unit/race checks, real plugin loading and the full lifecycle smoke test. It is in review; no release tag or production deployment has been published.
+> This is a replacement draft for the [current i3D integration guide](https://heroiclabs.com/docs/nakama/guides/concepts/i3d-integration/). The integration targets Nakama 3.41.0 and has passed local unit/race checks, real plugin loading and the full lifecycle smoke test. No production deployment has been published.
 >
-> The legacy main revision, `9a20297`, uses Nakama 3.26.0 / nakama-common 1.36.0 and a nested GitLab module path. This guide uses the implementation candidate commit `c926f8b38fd9e7bdd04ed4b95e1f0fb6c0ea62c9`. Replace that pin with the approved release version after merging and completing the local release checks. The final section lists the remaining publication gates.
+> The legacy main revision, `9a20297`, uses Nakama 3.26.0 / nakama-common 1.36.0 and a nested GitLab module path. This guide installs release `v0.1.0`, the first tag of the public root module. The final section lists the remaining publication gates.
 
 Use Nakama to authenticate players and find matches, then allocate a dedicated game server through i3D.net. Players receive the server's connection details through a Nakama notification and connect directly using your game's networking transport.
 
@@ -29,7 +29,7 @@ The candidate has been tested with this exact combination:
 | nakama-common | 1.48.0 |
 | Go | 1.27.1 |
 | Shared protobuf dependency | 1.36.12 |
-| i3D integration | Candidate c926f8b; release tag pending |
+| i3D integration | v0.1.0 |
 
 The dependency versions come from [Nakama 3.41.0's go.mod](https://github.com/heroiclabs/nakama/blob/v3.41.0/go.mod). The matching plugin loads in Nakama on Linux ARM64 locally; CI also builds and loads it on Linux AMD64. This does not establish compatibility with other runtime versions.
 
@@ -86,7 +86,7 @@ To evaluate the candidate, run these commands in your Go runtime project:
 # Only needed for a new project:
 go mod init example.com/nakama-i3d-game
 
-go get github.com/i3dnet/nakama-i3d@c926f8b38fd9e7bdd04ed4b95e1f0fb6c0ea62c9
+go get github.com/i3dnet/nakama-i3d@v0.1.0
 go get github.com/heroiclabs/nakama-common@v1.48.0 google.golang.org/protobuf@v1.36.12
 ~~~
 
@@ -537,10 +537,10 @@ This project has no staging environment. Verification uses local unit/race tests
 Candidate checks: the public root module installs without cloning or replace; the guide's complete Go files and filter example are compiled in a clean consumer; the exact runtime loads the plugin; the two-client smoke validates metadata, notifications, native storage concurrency and cursor sorting, HTTP-key lifecycle payloads, missed-update recovery, invalid readiness and timeout. Unit/race tests cover OAuth, request capture, callback lifetime and concurrent session state.
 
 Publication gates remain:
-- Merge the runtime and documentation PRs and select the release tag (no tags existed at review; v0.1.0 is proposed for the first public root module).
-- Repeat clean-consumer installation against the approved tag.
+- Merge the runtime PR, tag v0.1.0 on that merge commit, then merge the documentation PR.
+- Repeat clean-consumer installation against v0.1.0.
 - Identify the currently deployed image/commit, Nakama version, configuration source and game-server authentication; prepare migration and rollback.
 - Complete the local test/build/smoke checks, have the maintainer disposition the two lifecycle review threads, and record the unverified live-provider timing limits. No staging environment is required by this checklist.
-- Replace the candidate pin with the approved release version, remove the draft/publication notes, and publish the guide.
+- Remove the draft/publication notes and publish the guide.
 
 The user will send this draft to Heroic Labs. No partner message, release tag or deployment has been sent or published by this work.

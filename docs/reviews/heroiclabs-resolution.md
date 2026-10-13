@@ -1,6 +1,6 @@
 # Heroic Labs feedback resolution
 
-Candidate: c926f8b38fd9e7bdd04ed4b95e1f0fb6c0ea62c9. Partner draft: [online-docs.md](../../online-docs.md). This is a review candidate, not a tagged or deployed release.
+Release: v0.1.0, the merged form of reviewed candidate c926f8b38fd9e7bdd04ed4b95e1f0fb6c0ea62c9. Partner draft: [online-docs.md](../../online-docs.md). It is not yet deployed.
 
 | Feedback | Resolution | Evidence |
 | --- | --- | --- |
