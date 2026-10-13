@@ -105,6 +105,35 @@ func TestAllocationPreservesExplicitMetadataDeletion(t *testing.T) {
 		map[string]any{"key": "remove", "value": nil},
 	}}, body)
 }
+
+func TestMetadataValuesAreSentAsJSONText(t *testing.T) {
+	var update map[string]any
+	client := contractClient(t, func(w http.ResponseWriter, r *http.Request) {
+		if err := json.NewDecoder(r.Body).Decode(&update); err != nil {
+			t.Error(err)
+		}
+		writeInstances(w, []openapi.ApplicationInstance{validProviderInstance()})
+	})
+	_, err := client.UpdateApplicationInstance(context.Background(), "instance-1", map[string]any{
+		"text":   "arena",
+		"count":  3,
+		"mmr":    float64(1500000),
+		"ratio":  0.25,
+		"ranked": true,
+		"teams":  []any{"red", float64(2)},
+		"rules":  map[string]any{"rounds": float64(1000000)},
+	})
+	require.NoError(t, err)
+	require.Equal(t, map[string]any{"metadata": []any{
+		map[string]any{"key": "count", "value": "3"},
+		map[string]any{"key": "mmr", "value": "1500000"},
+		map[string]any{"key": "ranked", "value": "true"},
+		map[string]any{"key": "ratio", "value": "0.25"},
+		map[string]any{"key": "rules", "value": `{"rounds":1000000}`},
+		map[string]any{"key": "teams", "value": `["red",2]`},
+		map[string]any{"key": "text", "value": "arena"},
+	}}, update)
+}
 func TestEmptyProviderResponsesReturnErrors(t *testing.T) {
 	for _, operation := range []string{"get", "allocate", "update"} {
 		t.Run(operation, func(t *testing.T) {

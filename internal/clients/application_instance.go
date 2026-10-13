@@ -2,6 +2,7 @@ package clients
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"github.com/heroiclabs/nakama-common/runtime"
 	openapi "github.com/i3dnet/nakama-i3d/internal/openapi"
@@ -286,12 +287,26 @@ func createMetaData(metaData map[string]any) openapi.MetadataPatchCollection {
 		}
 		var text *string
 		if value != nil {
-			formatted := fmt.Sprintf("%v", value)
+			formatted := metadataText(value)
 			text = &formatted
 		}
 		parsedMetaData = append(parsedMetaData, openapi.MetadataChange{Key: key, Value: text})
 	}
 	return openapi.MetadataPatchCollection{Metadata: parsedMetaData}
+}
+
+// metadataText renders a value as the provider's string metadata. Non-strings
+// use JSON so numbers from JSON payloads and matchmaker properties (float64)
+// stay integral rather than becoming "1e+06", and nested values stay parseable.
+func metadataText(value any) string {
+	if text, ok := value.(string); ok {
+		return text
+	}
+	encoded, err := json.Marshal(value)
+	if err != nil {
+		return fmt.Sprintf("%v", value)
+	}
+	return string(encoded)
 }
 
 func createRangedData(limit int) string {
