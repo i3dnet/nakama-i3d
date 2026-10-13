@@ -1,6 +1,6 @@
-# Release candidate checklist — updated 29 September 2026
+# Release candidate checklist — updated 13 October 2026
 
-Implementation candidate: c926f8b38fd9e7bdd04ed4b95e1f0fb6c0ea62c9, publicly resolved as v0.0.0-20261013082344-c926f8b38fd9. The initial main review used f26ac9d83ebb1a70f492db70b69eacf842403cb6. Upstream main is now 9a20297 after #8 was merged; this work has not merged PRs. The deployed artifact is unknown.
+Implementation candidate: 6c4711f0362a71c1d3e7fca74084774cc121d863, publicly resolved as v0.0.0-20261013110901-6c4711f0362a. The initial main review used f26ac9d83ebb1a70f492db70b69eacf842403cb6. Upstream main is now 9a20297 after #8 was merged; this work has not merged PRs. The deployed artifact is unknown.
 
 ## Review layout
 
@@ -24,7 +24,7 @@ The [superseded stack map](reviews/2026-09-24-superseded-pr-stack.md) retains th
 - [x] Actual storage-index sorting, tied player counts with descending creation times, and continuation pages. Sort fields use value.player_count and value.create_time.
 - [x] Provider multi-page reconciliation, missed termination without restart, invalid readiness, exactly one restart for a confirmed failed allocation, and bounded timeout without allocation retry.
 - [x] Unit regression coverage for completed-result precedence, fresh persistence and cleanup contexts, cleanup error reporting, callback lifetime/one terminal callback, failed provider pages, Create/Join/reallocation races, storage pagination boundaries and bounded clock skew, OAuth refresh and cancellation.
-- [x] Fresh public Go module cache, no clone/replace/private GitLab credentials: scripts/check-install.sh at c926f8b resolves the pseudo-version above and compiles the real example.
+- [x] Fresh public Go module cache, no clone/replace/private GitLab credentials: scripts/check-install.sh at 6c4711f resolves the pseudo-version above and compiles the real example.
 - [x] Partner guide Go files and filter block compiled/tested in an isolated consumer through scripts/check-docs.py. CI recompiles the actual Markdown blocks.
 - [x] Documented unwrapped JSON lifecycle payloads executed against Nakama's HTTP-key endpoint.
 - [x] Ordinary plugin builds exclude the i3d_smoke test RPCs.
@@ -50,7 +50,7 @@ The [next runtime Balanced review](https://github.com/i3dnet/nakama-i3d/pull/42#
 | --- | --- |
 | Reported player count exceeds local capacity | Validate against stored capacity before the provider call and again in the versioned mutation; reject over-capacity reports as INVALID_ARGUMENT. |
 | One API retains the previous player count | Corrected after documentation review: numPlayers is read-only Arcus telemetry. Preserve the Nakama report locally and send only metadata to ONE. The earlier PUT-count fix and matching mock assertion were invalid. |
-| Shutdown grace is shorter than cleanup budget | Example and smoke Nakama configs allow 45 seconds; Compose allows 60 seconds before forced termination, exceeding the default 30-second cleanup budget. |
+| Shutdown grace is shorter than cleanup budget | Example and smoke Nakama configs allow 105 seconds; Compose allows 120 seconds before forced termination, exceeding the default 90-second cleanup budget. |
 | Generated build-provisioning endpoint leaves an ID placeholder in the URL | Align the generated route and source schema placeholder; an HTTP-capture regression verifies the exact path. |
 | Guide verifier omits the import-only block | Compile that block in its own Go file and reject unrecognized blocks. A temporary malformed import was accepted before the fix and rejected afterward. |
 | Historical review record claims an obsolete active pin | Describe the prior candidate in the past tense and link to this current checklist. |
@@ -79,17 +79,19 @@ A full review of the runtime candidate found defects that are fixed in c926f8b, 
 - The adapter exposes Shutdown for modules that register their own shutdown hook.
 - The example reads setting.json/.env/process configuration when runtime.env has no I3D_ setting, and its capacity covers every matched player.
 
-All four modules pass race tests and vet; the plugin builds and loads; the real Nakama/PostgreSQL lifecycle smoke passes; a fresh public consumer resolves v0.0.0-20261013082344-c926f8b38fd9; and the guide compiles against it. Deferred for follow-up rather than this release: absence-based cleanup that joins on a crashed server can postpone, player-count reports that replace pending reservations, metadata types such as time.Time rejected by Create, timeouts reported as CreateError rather than CreateTimeout, and an optional maximum allocation age that restarts servers stuck in ALLOCATED ([#44](https://github.com/i3dnet/nakama-i3d/issues/44)).
+At the maintainer's request, 6c4711f raises the default I3D_ALLOCATION_FINALIZE_TIMEOUT from 30s to 90s. The ONE API reaches the host agent during allocation and restart, and a host agent in another region can take longer than 30s; a shorter bound could cut off the cleanup restart. The example shutdown grace is now 105 seconds and the Compose stop deadline 120 seconds.
+
+At 6c4711f, all four modules pass race tests and vet; the plugin builds and loads; the real Nakama/PostgreSQL lifecycle smoke passes; a fresh public consumer resolves v0.0.0-20261013110901-6c4711f0362a; and the guide compiles against it. Deferred for follow-up rather than this release: absence-based cleanup that joins on a crashed server can postpone, player-count reports that replace pending reservations, metadata types such as time.Time rejected by Create, timeouts reported as CreateError rather than CreateTimeout, and an optional maximum allocation age that restarts servers stuck in ALLOCATED ([#44](https://github.com/i3dnet/nakama-i3d/issues/44)).
 
 ## Remaining release gates
 
-- [ ] Have the maintainer disposition the two [lifecycle review threads](reviews/2026-09-28-lifecycle-generation-blockers.md) against the documented single-owner release sequence. They remain open; this change does not claim stale caller protection across independent release/reallocation.
+- [x] Have the maintainer disposition the two [lifecycle review threads](reviews/2026-09-28-lifecycle-generation-blockers.md) against the documented single-owner release sequence. The maintainer accepted it on 13 October and both threads are resolved; this change does not claim stale caller protection across independent release/reallocation.
 
 - [ ] Complete human review and merge both replacement PRs. No PR has been merged by this work.
-- [ ] Tag v0.1.0 (chosen on 13 October) on the main commit that merges the runtime PR, before merging the documentation PR. Confirm that its tree matches reviewed candidate c926f8b.
+- [ ] Tag v0.1.0 (chosen on 13 October) on the main commit that merges the runtime PR, before merging the documentation PR. Confirm that its tree matches reviewed candidate 6c4711f.
 - [ ] Identify the live commit/image digest, Nakama version, runtime/process configuration source, application/fleet and headless-server authentication.
 - [ ] Confirm whether a security backport is needed for an existing 3.26 deployment. A 3.41 plugin cannot be substituted into the old runtime.
-- [x] Run the local test/race/vet, plugin build/load, guide compilation and allocation/update/release/reuse smoke checks for candidate c926f8b. Repeat if the runtime changes.
+- [x] Run the local test/race/vet, plugin build/load, guide compilation and allocation/update/release/reuse smoke checks for candidate 6c4711f. Repeat if the runtime changes.
 - [ ] Review timeout and reconciliation settings for the intended rollout. There are no staging measurements; two successful but incomplete provider scans can still falsely imply absence. Disable absence-based reconciliation if its consistency assumptions are not acceptable.
 - [ ] Retain the previous runtime/plugin image and configuration, take the normal database backup, document the rollout owner and rollback steps.
 - [ ] Review stored-session compatibility before rolling back: old records remain readable, but older code ignores new admission/version semantics and is not safe for concurrent mixed-version writers.

@@ -110,7 +110,7 @@ The examples below load settings from Nakama's `runtime.env` through `NewConfigF
 A minimal configuration using an i3D API token is:
 
 ~~~yaml
-shutdown_grace_sec: 45
+shutdown_grace_sec: 105
 runtime:
   http_key: "REPLACE_WITH_A_RANDOM_SERVER_ONLY_HTTP_KEY"
   env:
@@ -151,7 +151,7 @@ These settings use the same validation in runtime and process configuration:
 | `I3D_RETRY_DELAY` | `1500ms` | Initial delay before a retry |
 | `I3D_RETRY_MAX_DELAY` | `7500ms` | Maximum backoff delay |
 | `I3D_ALLOCATION_TIMEOUT` | `120s` | Provider allocation stage |
-| `I3D_ALLOCATION_FINALIZE_TIMEOUT` | `30s` | Fresh persistence budget and fresh budget for each cleanup attempt |
+| `I3D_ALLOCATION_FINALIZE_TIMEOUT` | `90s` | Fresh persistence budget and fresh budget for each cleanup attempt |
 | `I3D_PROVIDER_TIMEOUT` | `90s` | Timeout for each provider HTTP request |
 | `I3D_RECONCILE_INTERVAL` | `1m` | Poll interval; `0s` disables reconciliation |
 | `I3D_RECONCILE_TIMEOUT` | `30s` | Maximum duration of one reconciliation pass |
@@ -170,7 +170,7 @@ Only reads retry transient network failures and HTTP 408, 429, 500, 502, 503 or 
 
 Arcus coordinates server allocation and metadata. It does not replace player authentication.
 
-Keep Nakama's shutdown grace longer than I3D_ALLOCATION_FINALIZE_TIMEOUT, with time for cancellation to propagate. These examples allow 45 seconds for the default 30-second cleanup budget. Configure the container or service manager to wait longer still (the repository Compose files allow 60 seconds). A dependency that ignores cancellation can still outlive the grace period.
+Keep Nakama's shutdown grace longer than I3D_ALLOCATION_FINALIZE_TIMEOUT, with time for cancellation to propagate. These examples allow 105 seconds for the default 90-second cleanup budget. Configure the container or service manager to wait longer still (the repository Compose files allow 120 seconds). A dependency that ignores cancellation can still outlive the grace period.
 
 Nakama keeps a single shutdown hook, and the last registration wins. `NewI3dFleetManager` registers one that drains the adapter. If your module registers its own shutdown hook afterwards, call `fm.(*fleetmanager.I3dFleetManager).Shutdown(ctx)` from it; otherwise the adapter no longer drains on shutdown.
 

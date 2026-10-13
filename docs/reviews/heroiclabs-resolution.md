@@ -1,12 +1,12 @@
 # Heroic Labs feedback resolution
 
-Release: v0.1.0, the merged form of reviewed candidate c926f8b38fd9e7bdd04ed4b95e1f0fb6c0ea62c9. Partner draft: [online-docs.md](../../online-docs.md). It is not yet deployed.
+Release: v0.1.0, the merged form of reviewed candidate 6c4711f0362a71c1d3e7fca74084774cc121d863. Partner draft: [online-docs.md](../../online-docs.md). It is not yet deployed.
 
 | Feedback | Resolution | Evidence |
 | --- | --- | --- |
 | HL-01: old repository/import path in the online guide | Root module and imports now use github.com/i3dnet/nakama-i3d. The replacement guide has complete registration/matchmaking files, current config and lifecycle examples. | PR #42; scripts/check-docs.py compiles the actual draft. |
 | HL-02: common 1.36 pins limited runtime compatibility | Upgrade all shared dependencies, FleetManager Create signature and images together to Nakama 3.41.0/common 1.48.0/Go 1.27.1/protobuf 1.36.12. Keep the 3.26 legacy revision identifiable. | PR #42; real Linux ARM64 and AMD64 plugin loading; PR #42 lifecycle smoke. |
-| HL-03: go get does not provide an installable module | Reusable code lives under a public root go.mod. Local replace remains only for development of the separate example. | Fresh public resolution to v0.0.0-20261013082344-c926f8b38fd9; actual example compiles without cloning or replace. |
+| HL-03: go get does not provide an installable module | Reusable code lives under a public root go.mod. Local replace remains only for development of the separate example. | Fresh public resolution to v0.0.0-20261013110901-6c4711f0362a; actual example compiles without cloning or replace. |
 
 Additional corrections from the provider comparison:
 - Preserve i3D's native allocation completion instead of copying a provider-specific READY webhook.
