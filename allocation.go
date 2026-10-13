@@ -49,20 +49,26 @@ func (r *allocationResult) wait(ctx context.Context) allocationOutcome {
 	return allocationOutcome{err: ctx.Err()}
 }
 
-func (fm *I3dFleetManager) runAllocationStage(parent context.Context, timeout time.Duration, work func(context.Context) allocationOutcome) allocationOutcome {
-	ctx, cancel := context.WithTimeout(context.WithoutCancel(parent), timeout)
-	defer cancel()
-	stopShutdown := context.AfterFunc(fm.ctx, cancel)
-	defer stopShutdown()
+// runAllocationStage abandons work after timeout. work may run workGrace longer:
+// a non-idempotent call canceled at abandonment can succeed remotely without
+// returning the confirmed result its worker needs to reclaim. Shutdown cancels both.
+func (fm *I3dFleetManager) runAllocationStage(parent context.Context, timeout, workGrace time.Duration, work func(context.Context) allocationOutcome) allocationOutcome {
+	workCtx, cancelWork := context.WithTimeout(context.WithoutCancel(parent), timeout+workGrace)
+	stopShutdown := context.AfterFunc(fm.ctx, cancelWork)
 	if fm.ctx.Err() != nil {
-		cancel()
+		cancelWork()
 	}
+	ctx, cancel := context.WithTimeout(workCtx, timeout)
+	defer cancel()
 	result := &allocationResult{done: make(chan struct{})}
 	// The coordinator is still tracked, so shutdown cannot finish before this Add.
 	fm.operations.Add(1)
 	go func() {
 		defer fm.operations.Done()
-		outcome := work(ctx)
+		// Canceling workCtx also cancels ctx, so it must follow result.complete.
+		defer cancelWork()
+		defer stopShutdown()
+		outcome := work(workCtx)
 		if !result.complete(outcome) {
 			fm.reclaimAllocation(parent, outcome.instance)
 		}

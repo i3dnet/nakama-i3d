@@ -33,7 +33,12 @@ type I3dFleetManager struct {
 	storage                  storage.FleetManagerStorage
 }
 
-// NewI3dFleetManager creates a new I3dFleetManager instance from the given context, logger, initializer, nakama module, and configuration
+// NewI3dFleetManager creates a new I3dFleetManager instance from the given context, logger, initializer, nakama module, and configuration.
+//
+// Nakama keeps a single shutdown hook, and the last registration wins.
+// NewI3dFleetManager registers that hook to drain the manager. A module that
+// registers its own shutdown hook afterwards replaces it and must call
+// Shutdown(ctx) from that hook, e.g. fm.(*I3dFleetManager).Shutdown(ctx).
 func NewI3dFleetManager(
 	ctx context.Context,
 	logger runtime.Logger,
@@ -82,7 +87,7 @@ func NewI3dFleetManager(
 		return nil, err
 	}
 
-	if err = initializer.RegisterShutdown(func(ctx context.Context, _ runtime.Logger, _ *sql.DB, _ runtime.NakamaModule) { fm.shutdown(ctx) }); err != nil {
+	if err = initializer.RegisterShutdown(func(ctx context.Context, _ runtime.Logger, _ *sql.DB, _ runtime.NakamaModule) { fm.Shutdown(ctx) }); err != nil {
 		return nil, err
 	}
 	success = true
@@ -236,12 +241,12 @@ func (fm *I3dFleetManager) Create(ctx context.Context, maxPlayers int, userIds [
 		if fm.cfg.FleetId != "" {
 			scope := NewFilterBuilder().Add(FleetId, fm.cfg.FleetId).Query()
 			if filters != "" {
-				filters = "(" + filters + ") and " + scope
+				filters = filters + " and " + scope
 			} else {
 				filters = scope
 			}
 		}
-		completed := fm.runAllocationStage(ctx, timeout, func(stageCtx context.Context) allocationOutcome {
+		completed := fm.runAllocationStage(ctx, timeout, fm.allocationFinalizeTimeout(), func(stageCtx context.Context) allocationOutcome {
 			instance, err := fm.client.AllocateApplicationInstance(stageCtx, requestMetadata, filters)
 			if err == nil && (instance == nil || strings.TrimSpace(instance.Id) == "") {
 				err = errors.New("allocation returned no instance identity")
@@ -266,7 +271,7 @@ func (fm *I3dFleetManager) Create(ctx context.Context, maxPlayers int, userIds [
 			if override, ok := requestMetadata[clients.ApplicationId]; ok {
 				applicationID = fmt.Sprint(override)
 			}
-			completed = fm.runAllocationStage(ctx, fm.allocationFinalizeTimeout(), func(stageCtx context.Context) allocationOutcome {
+			completed = fm.runAllocationStage(ctx, fm.allocationFinalizeTimeout(), 0, func(stageCtx context.Context) allocationOutcome {
 				return allocationOutcome{instance, fm.storage.CreateGameSession(stageCtx, instance, applicationID, userIds)}
 			})
 		}
@@ -291,8 +296,12 @@ func (fm *I3dFleetManager) Create(ctx context.Context, maxPlayers int, userIds [
 	return nil, nil
 }
 
-// shutdown cancels accepted operations and waits within Nakama's grace period.
-func (fm *I3dFleetManager) shutdown(ctx context.Context) {
+// Shutdown cancels accepted operations and waits for them until ctx is done
+// (Nakama's shutdown grace period). Nakama keeps a single shutdown hook;
+// NewI3dFleetManager registers one that calls Shutdown. A module that registers
+// its own shutdown hook afterwards must call fm.Shutdown(ctx) from that hook.
+// Repeated or concurrent calls are safe.
+func (fm *I3dFleetManager) Shutdown(ctx context.Context) {
 	fm.lifecycleMu.Lock()
 	fm.stopping = true
 	fm.cancel()

@@ -238,12 +238,42 @@ func TestCreateNilCallbackDoesNotRegister(t *testing.T) {
 func TestShutdownRejectsFurtherCreate(t *testing.T) {
 	fm, _, _, registry, cancel := createFixture(t)
 	fm.cancel = cancel
-	fm.shutdown(context.Background())
+	fm.Shutdown(context.Background())
 	_, err := fm.Create(context.Background(), 2, nil, nil, nil, resultCallback(make(chan createResult, 1)))
 	require.Error(t, err)
 	registry.mu.Lock()
 	require.Empty(t, registry.callbacks)
 	registry.mu.Unlock()
+}
+
+func TestShutdownDrainsAcceptedAllocationAndRepeatsHarmlessly(t *testing.T) {
+	fm, client, _, _, cancel := createFixture(t)
+	fm.cancel = cancel
+	started, returned := make(chan struct{}), make(chan struct{})
+	client.EXPECT().AllocateApplicationInstance(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, _ map[string]any, _ string) (*runtime.InstanceInfo, error) {
+		close(started)
+		defer close(returned)
+		<-ctx.Done()
+		return nil, ctx.Err()
+	})
+	done := make(chan createResult, 1)
+	_, err := fm.Create(context.Background(), 2, nil, nil, nil, resultCallback(done))
+	require.NoError(t, err)
+	<-started
+	for i := 0; i < 2; i++ {
+		grace, stop := context.WithTimeout(context.Background(), 5*time.Second)
+		fm.Shutdown(grace)
+		require.NoError(t, grace.Err(), "Shutdown %d must drain before its deadline", i+1)
+		stop()
+	}
+	select {
+	case <-returned:
+	default:
+		t.Fatal("Shutdown returned before the provider call drained")
+	}
+	require.ErrorIs(t, awaitCreate(t, done).err, context.Canceled)
+	_, err = fm.Create(context.Background(), 2, nil, nil, nil, resultCallback(make(chan createResult, 1)))
+	require.Error(t, err)
 }
 
 func TestCreateOwnsMetadataWithoutChangingScalarTypes(t *testing.T) {

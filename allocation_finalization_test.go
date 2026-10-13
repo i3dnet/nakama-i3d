@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -123,6 +124,46 @@ func TestCreateStorageTimeoutReclaimsLateCommitOnce(t *testing.T) {
 	require.ErrorIs(t, awaitCreate(t, done).err, context.DeadlineExceeded)
 	close(release)
 	fm.operations.Wait()
+	require.Empty(t, done)
+	registry.mu.Lock()
+	defer registry.mu.Unlock()
+	require.Equal(t, 1, registry.invocations)
+}
+
+func TestCreateTimeoutReclaimsLateAllocationFromCancellationAwareProvider(t *testing.T) {
+	fm, client, _, registry, _ := createFixture(t)
+	fm.cfg.AllocationTimeout = 10 * time.Millisecond
+	reported := make(chan struct{})
+	var providerDeadline time.Time
+	var providerBounded bool
+	client.EXPECT().AllocateApplicationInstance(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, _ map[string]any, _ string) (*runtime.InstanceInfo, error) {
+		providerDeadline, providerBounded = ctx.Deadline()
+		// Like an HTTP request, a canceled call never observes the provider's response.
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-reported:
+		}
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+		return &runtime.InstanceInfo{Id: "late"}, nil
+	})
+	var restarts atomic.Int32
+	client.EXPECT().RestartApplicationInstance(gomock.Any(), "late").DoAndReturn(func(context.Context, string) error {
+		restarts.Add(1)
+		return nil
+	}).AnyTimes()
+	done := make(chan createResult, 2)
+	_, err := fm.Create(context.Background(), 2, nil, nil, nil, resultCallback(done))
+	require.NoError(t, err)
+	require.ErrorIs(t, awaitCreate(t, done).err, context.DeadlineExceeded)
+	latestDeadline := time.Now().Add(fm.cfg.AllocationTimeout + fm.allocationFinalizeTimeout())
+	close(reported) // The provider confirms the allocation after the stage deadline.
+	fm.operations.Wait()
+	require.Equal(t, int32(1), restarts.Load(), "late confirmed allocation must be restarted exactly once")
+	require.True(t, providerBounded, "provider call must stay bounded after abandonment")
+	require.False(t, providerDeadline.After(latestDeadline))
 	require.Empty(t, done)
 	registry.mu.Lock()
 	defer registry.mu.Unlock()

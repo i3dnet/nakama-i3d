@@ -179,7 +179,7 @@ func TestReconciliationWorkerRecoversAndStops(t *testing.T) {
 	}, time.Second, time.Millisecond)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	fm.shutdown(ctx)
+	fm.Shutdown(ctx)
 	count := calls.Load()
 	require.GreaterOrEqual(t, count, int32(2))
 	select {
@@ -190,7 +190,7 @@ func TestReconciliationWorkerRecoversAndStops(t *testing.T) {
 func TestConfiguredFleetScopesAllocation(t *testing.T) {
 	fm, client, cache, _, _ := createFixture(t)
 	fm.cfg.FleetId = "7"
-	client.EXPECT().AllocateApplicationInstance(gomock.Any(), gomock.Any(), "(dcLocationId=1) and fleetId=7").Return(&runtime.InstanceInfo{Id: "one"}, nil)
+	client.EXPECT().AllocateApplicationInstance(gomock.Any(), gomock.Any(), "dcLocationId=1 and fleetId=7").Return(&runtime.InstanceInfo{Id: "one"}, nil)
 	cache.EXPECT().CreateGameSession(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, instance *runtime.InstanceInfo, _ string, _ []string) error {
 		require.Equal(t, "7", instance.Metadata["i3d_fleet_id"])
 		return nil
