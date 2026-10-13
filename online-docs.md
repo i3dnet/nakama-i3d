@@ -1,11 +1,5 @@
 # Integrate Nakama with i3D.net
 
-> **Draft for Heroic Labs review — 22 September 2026**
->
-> This is a replacement draft for the [current i3D integration guide](https://heroiclabs.com/docs/nakama/guides/concepts/i3d-integration/). The integration targets Nakama 3.41.0 and has passed local unit/race checks, real plugin loading and the full lifecycle smoke test. No production deployment has been published.
->
-> The legacy main revision, `9a20297`, uses Nakama 3.26.0 / nakama-common 1.36.0 and a nested GitLab module path. This guide installs release `v0.1.0`, the first tag of the public root module. The final section lists the remaining publication gates.
-
 Use Nakama to authenticate players and find matches, then allocate a dedicated game server through i3D.net. Players receive the server's connection details through a Nakama notification and connect directly using your game's networking transport.
 
 The [Nakama–i3D integration](https://github.com/i3dnet/nakama-i3d) implements Nakama's [FleetManager interface](https://heroiclabs.com/docs/nakama/concepts/multiplayer/session-based/). It allocates an existing online i3D application instance. Provisioning hosts, deploying builds, and maintaining available server capacity are configured in i3D.net.
@@ -20,7 +14,7 @@ You need:
 - Arcus integration in your headless server to receive allocation metadata and participate in the allocation lifecycle.
 - A game client connected to Nakama's realtime socket, with a notification handler and a transport for connecting to your dedicated server.
 
-The candidate has been tested with this exact combination:
+Release v0.1.0 has been tested with this exact combination:
 
 | Component | Target |
 | --- | --- |
@@ -51,12 +45,12 @@ The relevant i3D application-instance states are:
 | Status | Meaning |
 | --- | --- |
 | 2 — OFFLINE | Deployed but not running |
-| 3 — STARTING | Starting up |
+| 3 — STARTING | Optional. Used only when the build has the startup callback option enabled, for game servers that must get information from your backend before they can start. i3D sets this status at startup; when the server is ready, your backend or the game server (through Arcus) must change it to ONLINE. |
 | 4 — ONLINE | Initialized and available for allocation |
 | 6 — ALLOCATING | Allocation is in progress |
 | 5 — ALLOCATED | Assigned to a game session |
 
-The documented allocation flow moves an instance through `ONLINE → ALLOCATING → ALLOCATED` before returning it to the matchmaker. See [i3D's allocation lifecycle](https://docs.i3d.net/game-hosting/game-integration/matchmaker-allocation) and the [One API reference](https://docs.i3d.net/api/api_one).
+Only ONLINE instances can be allocated. The documented allocation flow moves an instance through `ONLINE → ALLOCATING → ALLOCATED` before returning it to the matchmaker. See [i3D's allocation lifecycle](https://docs.i3d.net/game-hosting/game-integration/matchmaker-allocation) and the [One API reference](https://docs.i3d.net/api/api_one).
 
 ## Prepare the headless server
 
@@ -80,7 +74,7 @@ Metadata can arrive on each allocation, including when an instance is reused. Ha
 
 The public module is `github.com/i3dnet/nakama-i3d`. The reusable package retains the name `fleetmanager`.
 
-To evaluate the candidate, run these commands in your Go runtime project:
+Install the integration in your Go runtime project:
 
 ~~~sh
 # Only needed for a new project:
@@ -90,7 +84,7 @@ go get github.com/i3dnet/nakama-i3d@v0.1.0
 go get github.com/heroiclabs/nakama-common@v1.48.0 google.golang.org/protobuf@v1.36.12
 ~~~
 
-Use the approved release tag in place of the candidate commit when it is available, and commit the resulting `go.mod` and `go.sum`. The candidate is available through the public Go resolver; `@latest` on the legacy default branch is not the candidate installation path.
+Commit the resulting `go.mod` and `go.sum`. Pin a release tag such as `v0.1.0` rather than `@latest`.
 
 Import the library and configuration package as:
 
@@ -369,9 +363,18 @@ metadata := filters.AddFiltersToMetaData(map[string]any{
 })
 ~~~
 
-Use actual i3D IDs, not an AWS-style region name in an ID field. The builder also exposes name-based filters when appropriate.
+The builder accepts these exported filter keys:
 
-Supported filter keys include deployment environment, fleet, host, application build, data-center location, and region. Use the corresponding exported constants, such as `ApplicationBuildId`, `DcLocationId`, or `RegionName`.
+| Constant | Filters on |
+| --- | --- |
+| `DeploymentEnvironmentId`, `DeploymentEnvironmentName` | Deployment environment |
+| `FleetId`, `FleetName` | Fleet |
+| `HostId` | Host |
+| `ApplicationBuildId`, `ApplicationBuildName` | Application build |
+| `DcLocationId`, `DcLocationName` | Data-center location |
+| `RegionId`, `RegionName` | Region |
+
+Pass i3D IDs to the `...Id` keys and i3D names to the `...Name` keys, for example a region ID rather than an AWS-style region name.
 
 Metadata must be JSON-encodable. Accepted metadata retains exact Go scalar types and independent nested maps/slices for asynchronous allocation and callbacks. Structs containing mutable unexported state are rejected before allocation because the adapter cannot safely copy that state. The game server receives every metadata value as a string: strings are sent unchanged, and other values are sent as JSON text, for example `1500000`, `true` or `{"rounds":3}`.
 
@@ -440,7 +443,7 @@ The adapter takes a complete storage snapshot, then scans every provider page fo
 
 Absence remains an eventual-consistency assumption: choose a grace period longer than observed provider propagation delays, or disable reconciliation if successful listings cannot reliably establish absence. Continue sending lifecycle reports promptly. Graceful shutdown stops background work; clients still need recovery after server crashes.
 
-Lifecycle RPCs identify an instance rather than an individual match. The provider rejects already allocated/allocating instances, but a stale request sent after an independent release may affect the next match on that instance. Follow the release ordering above. The two open review threads and the limits of local verification are recorded in the [lifecycle contract assessment](docs/reviews/2026-09-28-lifecycle-generation-blockers.md).
+Lifecycle RPCs identify an instance rather than an individual match. The provider rejects already allocated/allocating instances, but a stale request sent after an independent release may affect the next match on that instance. Follow the release ordering above.
 
 ## Get, list, and join sessions
 
@@ -529,20 +532,3 @@ A simple handler health check confirms liveness. Use an actual allocation smoke 
 ## Observe allocation and recovery
 
 Nakama exposes i3d_allocation_total / i3d_allocation_duration and i3d_reconciliation_total / i3d_reconciliation_duration, with result tags success, error, timeout and canceled. Alert on persistent reconciliation failures and changes in allocation failure/latency. Labels exclude user and instance IDs. The HTTP client records route templates and status without logging credentials, headers or payload bodies.
-
-## Publication checks for i3D and Heroic Labs
-
-Remove this section and the opening draft note when the release evidence is complete.
-
-This project has no staging environment. Verification uses local unit/race tests and a contract mock, plus real Nakama/PostgreSQL containers; CI repeats these checks. The mock does not exercise live Arcus transport or provider timing.
-
-Candidate checks: the public root module installs without cloning or replace; the guide's complete Go files and filter example are compiled in a clean consumer; the exact runtime loads the plugin; the two-client smoke validates metadata, notifications, native storage concurrency and cursor sorting, HTTP-key lifecycle payloads, missed-update recovery, invalid readiness and timeout. Unit/race tests cover OAuth, request capture, callback lifetime and concurrent session state.
-
-Publication gates remain:
-- Merge the runtime PR, tag v0.1.0 on that merge commit, then merge the documentation PR.
-- Repeat clean-consumer installation against v0.1.0.
-- Identify the currently deployed image/commit, Nakama version, configuration source and game-server authentication; prepare migration and rollback.
-- Complete the local test/build/smoke checks, have the maintainer disposition the two lifecycle review threads, and record the unverified live-provider timing limits. No staging environment is required by this checklist.
-- Remove the draft/publication notes and publish the guide.
-
-The user will send this draft to Heroic Labs. No partner message, release tag or deployment has been sent or published by this work.

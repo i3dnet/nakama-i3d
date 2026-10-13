@@ -2,7 +2,7 @@
 
 Allocate existing online i3D game servers from Nakama matchmaking, deliver connection notifications, and maintain local session state. i3D manages hosts, deployment and available fleet capacity; Arcus carries allocation metadata to the headless server. This adapter implements Nakama's FleetManager interface.
 
-Release v0.1.0 is the first release of the public root module and targets the exact combination below. Main at 9a20297 and earlier is the legacy Nakama 3.26 integration. No production deployment has been published.
+Release v0.1.0 is the first release of the public root module and targets the exact combination below. Main at 9a20297 and earlier is the legacy Nakama 3.26 integration.
 
 | Component | Tested combination |
 | --- | --- |
@@ -23,7 +23,7 @@ go get github.com/i3dnet/nakama-i3d@v0.1.0
 
 Import github.com/i3dnet/nakama-i3d (package fleetmanager) and github.com/i3dnet/nakama-i3d/config. External installation needs no clone or local replace. Pin a release tag such as v0.1.0.
 
-Follow the complete [partner guide draft](online-docs.md) for compiling InitModule/matchmaking examples, Arcus responsibilities, filters, notifications and headless-server lifecycle calls. The [example source](plugin/example/src/cmd/main/main.go) is also built and loaded by CI.
+Follow the complete [integration guide](online-docs.md) for compiling InitModule/matchmaking examples, Arcus responsibilities, filters, notifications and headless-server lifecycle calls. The [example source](plugin/example/src/cmd/main/main.go) is also built and loaded by CI.
 
 ## Run locally
 
@@ -54,10 +54,6 @@ The development stack uses a new PostgreSQL 16 data_v16 volume, preserving old P
 - Join has versioned local capacity accounting and partial admission. It does not issue expiring reservations or player authentication tokens; authoritative count updates reset local deduplication.
 - An empty List query pages through provider allocations. Nonempty queries use the Nakama index, e.g. +value.player_count:>=2. Preserve the query, limit and listing mode when following a cursor.
 
-Read [compatibility/migration](docs/compatibility.md), [configuration](docs/configuration.md), [reconciliation](docs/reconciliation.md), [metrics](docs/observability.md) and the [release checklist](docs/release-checklist.md).
-
-## Release evidence
-
-The [release checklist](docs/release-checklist.md) links both review PRs and the historical stack and distinguishes unit/race checks, native plugin/smoke tests, clean-consumer installation and live-provider gates. The [Heroic Labs resolution](docs/reviews/heroiclabs-resolution.md) maps the supplied partner comments to changes and evidence. The user will send online-docs.md to Heroic Labs.
+Read [compatibility/migration](docs/compatibility.md), [configuration](docs/configuration.md), [reconciliation](docs/reconciliation.md) and [metrics](docs/observability.md).
 
 Licensed under [MIT](LICENSE).

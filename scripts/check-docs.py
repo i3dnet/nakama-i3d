@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""Compile the actual partner-guide blocks in a consumer without replace.
+"""CI check that the Go code in online-docs.md compiles and runs.
+
+It copies the guide's Go blocks into a fresh consumer module, with no local
+replace, so the published samples cannot drift from the library API.
 
 Without an argument, expose this checkout through a temporary local Go proxy.
 With a commit/tag argument, use the normal public Go resolver.
