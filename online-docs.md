@@ -422,7 +422,7 @@ Choose an end-of-session policy that matches your application deployment:
 - **Exit the process:** when the i3D orchestrator manages your servers, it starts the server again. Exit with code 0; any code other than 0 or 130 counts as a crash.
 - **Reuse the running process:** reset game state and return the instance to ONLINE through the supported i3D/Arcus lifecycle.
 
-Only `delete_instance_info` removes the Nakama session record immediately. After an exit or a return to ONLINE, Nakama keeps the old session until two consecutive reconciliation passes see that the instance is no longer allocated: usually about two minutes with the default `I3D_RECONCILE_INTERVAL` of 1m (sessions younger than `I3D_RECONCILE_GRACE_PERIOD` wait longer). Until then, a filtered `List` can still return the session and `Join` can still admit players to it. Keep reconciliation enabled; it also removes sessions left by crashed servers.
+`delete_instance_info` removes the Nakama session record immediately. After an exit or a return to ONLINE, the record stays until the adapter sees that the instance is no longer allocated. A `Get` for that instance removes it at once. Otherwise background reconciliation removes it after two consecutive passes: usually about two minutes with the default `I3D_RECONCILE_INTERVAL` of 1m (sessions younger than `I3D_RECONCILE_GRACE_PERIOD` wait longer). Until then, a filtered `List` can still return the session and `Join` can still admit players to it. Keep reconciliation enabled; it also removes sessions left by crashed servers.
 
 The restart RPC payload is:
 
@@ -531,7 +531,7 @@ Use `player_count`, supply the application-instance ID, and authenticate as a se
 Check the allocation result, storage errors, and notification-delivery errors. The client must handle timeout, failure, lost connectivity and missed nonpersistent notifications. In the reviewed open-source Nakama runtime, pending callbacks are local to the process and do not survive restart.
 
 **How should the game server handle a crash?**
-Let the process exit. Arcus has no error status. The i3D orchestrator always starts a failed server again. An exit code other than 0 or 130 counts as a crash: a crash report is sent to the i3D backend, and after three crashes in a row the orchestrator stops that game server and keeps it stopped so you can investigate it on the host. Players connected to the crashed server need your client's reconnection or rematch flow.
+Let the process exit. Arcus has no error status. The i3D orchestrator restarts a crashed server. An exit code other than 0 or 130 counts as a crash and sends a crash report to the i3D backend. After three crashes in a row, the orchestrator no longer restarts that application instance: it stays stopped so you can investigate it on the host, until it is removed manually or by the scaler. When scaling down, the orchestrator removes stopped instances first, so in a busy fleet a crashed instance can be cleaned up automatically. Players connected to the crashed server need your client's reconnection or rematch flow.
 
 **Can a health-check RPC confirm that allocation works?**
 A simple handler health check confirms liveness. Use an actual allocation smoke test and allocation outcome/duration metrics to validate the provider integration.
